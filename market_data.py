@@ -1,0 +1,261 @@
+"""A-share and exchange-traded fund data using only the standard library.
+
+The upstream endpoint is a public quote interface.  It is deliberately isolated in
+this module so it can be replaced by a licensed data vendor without touching the
+analysis or UI layers.
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from typing import Any
+
+
+class MarketDataError(RuntimeError):
+    pass
+
+
+INDEXES = {
+    "000001": ("1.000001", "上证指数"),
+    "399001": ("0.399001", "深证成指"),
+    "399006": ("0.399006", "创业板指"),
+}
+
+
+def normalize_symbol(raw: str) -> str:
+    value = raw.strip().upper().replace("SH", "").replace("SZ", "").replace("BJ", "")
+    if not (len(value) == 6 and value.isdigit()):
+        raise ValueError("请输入 6 位证券代码，例如 600519 或 510300")
+    if value[0] not in "01345689":
+        raise ValueError("暂不支持该证券代码，仅支持沪深京 A 股和场内 ETF/基金")
+    return value
+
+
+def security_id(symbol: str) -> str:
+    market = "1" if symbol.startswith(("5", "6", "9")) else "0"
+    return f"{market}.{symbol}"
+
+
+def instrument_type(symbol: str) -> str:
+    """Classify common exchange-traded instruments from their exchange code."""
+    if symbol.startswith(("51", "56", "58", "15")):
+        return "etf"
+    if symbol.startswith(("16", "50")):
+        return "fund"
+    return "stock"
+
+
+def clean_name(value: Any, fallback: str) -> str:
+    """Remove spacing artifacts present in a few quote-source stock names."""
+    if not isinstance(value, str) or not value.strip():
+        return fallback
+    return "".join(value.split())
+
+
+@dataclass
+class CacheItem:
+    expires_at: float
+    value: Any
+
+
+class MarketDataClient:
+    KLINE_URL = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    QUOTE_URL = "https://push2.eastmoney.com/api/qt/stock/get"
+    FALLBACK_KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+
+    def __init__(self, timeout: float = 8.0) -> None:
+        self.timeout = timeout
+        self._cache: dict[str, CacheItem] = {}
+        self._lock = threading.Lock()
+        # The public endpoint occasionally drops bursts of parallel connections.
+        # Keep the dashboard's first-load fan-out polite and retry transient drops.
+        self._outbound_slots = threading.BoundedSemaphore(2)
+
+    def _get_json(self, url: str, params: dict[str, str]) -> dict[str, Any]:
+        target = f"{url}?{urllib.parse.urlencode(params)}"
+        last_error: Exception | None = None
+        for attempt in range(3):
+            request = urllib.request.Request(
+                target,
+                headers={
+                    "User-Agent": "Mozilla/5.0 AShareResearchDashboard/1.0",
+                    "Accept": "application/json,text/plain,*/*",
+                    "Referer": "https://quote.eastmoney.com/",
+                    "Connection": "close",
+                },
+            )
+            try:
+                with self._outbound_slots:
+                    with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                        return json.loads(response.read().decode("utf-8"))
+            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ConnectionError) as exc:
+                last_error = exc
+                if attempt < 2:
+                    time.sleep(0.25 * (attempt + 1))
+        raise MarketDataError(f"行情服务暂时不可用：{last_error}") from last_error
+
+    def _cached(self, key: str, ttl: int, loader: Any) -> Any:
+        now = time.time()
+        with self._lock:
+            item = self._cache.get(key)
+            if item and item.expires_at > now:
+                return item.value
+        value = loader()
+        with self._lock:
+            self._cache[key] = CacheItem(now + ttl, value)
+        return value
+
+    def _fallback_history(self, symbol: str, limit: int, *, index: bool) -> dict[str, Any]:
+        prefix = "sh" if (index and symbol == "000001") or symbol.startswith(("5", "6", "9")) else "sz"
+        key = f"{prefix}{symbol}"
+        payload = self._get_json(
+            self.FALLBACK_KLINE_URL,
+            {"param": f"{key},day,,,{limit},qfq"},
+        )
+        data = (payload.get("data") or {}).get(key) or {}
+        lines = data.get("qfqday") or data.get("day") or []
+        quote_row = (data.get("qt") or {}).get(key) or []
+        rows: list[dict[str, Any]] = []
+        previous_close: float | None = None
+        for line in lines:
+            if len(line) < 6:
+                continue
+            try:
+                open_price, close, high, low = map(float, line[1:5])
+                volume = float(line[5])
+            except (TypeError, ValueError):
+                continue
+            pct_change = ((close / previous_close - 1) * 100) if previous_close else 0.0
+            amplitude = ((high - low) / previous_close * 100) if previous_close else 0.0
+            rows.append(
+                {
+                    "date": line[0],
+                    "open": open_price,
+                    "close": close,
+                    "high": high,
+                    "low": low,
+                    "volume": volume,
+                    "amount": 0.0,
+                    "amplitude": amplitude,
+                    "pct_change": pct_change,
+                    "change": close - previous_close if previous_close else 0.0,
+                    "turnover": 0.0,
+                }
+            )
+            previous_close = close
+        if len(rows) < 60:
+            raise MarketDataError("备用行情源返回的有效历史数据不足 60 个交易日")
+        fallback_name = quote_row[1] if len(quote_row) > 1 else symbol
+        return {
+            "symbol": symbol,
+            "name": clean_name(fallback_name, symbol),
+            "rows": rows,
+            "data_source": "fallback",
+        }
+
+    def history(self, symbol: str, limit: int = 300, *, index: bool = False) -> dict[str, Any]:
+        symbol = normalize_symbol(symbol)
+        limit = max(80, min(limit, 600))
+        if index and symbol not in INDEXES:
+            raise ValueError("不支持的市场指数代码")
+        secid = INDEXES[symbol][0] if index else security_id(symbol)
+        asset_type = "index" if index else instrument_type(symbol)
+
+        def load() -> dict[str, Any]:
+            try:
+                payload = self._get_json(
+                    self.KLINE_URL,
+                    {
+                        "secid": secid,
+                        "klt": "101",
+                        "fqt": "1",
+                        "lmt": str(limit),
+                        "end": "20500101",
+                        "fields1": "f1,f2,f3,f4,f5,f6,f7,f8",
+                        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+                    },
+                )
+            except MarketDataError:
+                fallback = self._fallback_history(symbol, limit, index=index)
+                return {**fallback, "asset_type": asset_type}
+            data = payload.get("data")
+            if not data or not data.get("klines"):
+                raise MarketDataError("未找到该代码的行情，请确认它是已上市的 A 股或场内 ETF/基金")
+            rows = []
+            for line in data["klines"]:
+                parts = line.split(",")
+                if len(parts) < 11:
+                    continue
+                try:
+                    rows.append(
+                        {
+                            "date": parts[0],
+                            "open": float(parts[1]),
+                            "close": float(parts[2]),
+                            "high": float(parts[3]),
+                            "low": float(parts[4]),
+                            "volume": float(parts[5]),
+                            "amount": float(parts[6]),
+                            "amplitude": float(parts[7]),
+                            "pct_change": float(parts[8]),
+                            "change": float(parts[9]),
+                            "turnover": float(parts[10]),
+                        }
+                    )
+                except ValueError:
+                    continue
+            if len(rows) < 60:
+                raise MarketDataError("有效历史行情不足 60 个交易日，暂时无法分析")
+            return {
+                "symbol": symbol,
+                "name": clean_name(data.get("name"), symbol),
+                "asset_type": asset_type,
+                "data_source": "primary",
+                "rows": rows,
+            }
+
+        return self._cached(f"history:{asset_type}:{symbol}:{limit}", 300, load)
+
+    def quote(self, symbol: str) -> dict[str, Any]:
+        symbol = normalize_symbol(symbol)
+
+        def load() -> dict[str, Any]:
+            payload = self._get_json(
+                self.QUOTE_URL,
+                {
+                    "secid": security_id(symbol),
+                    "fields": "f57,f58,f43,f44,f45,f46,f47,f48,f60,f116,f117,f162,f167,f170,f171",
+                },
+            )
+            data = payload.get("data") or {}
+
+            def scaled(field: str, divisor: float = 100.0) -> float | None:
+                value = data.get(field)
+                return None if value in (None, "-") else round(float(value) / divisor, 3)
+
+            return {
+                "symbol": data.get("f57") or symbol,
+                "name": clean_name(data.get("f58"), symbol),
+                "asset_type": instrument_type(symbol),
+                "price": scaled("f43"),
+                "high": scaled("f44"),
+                "low": scaled("f45"),
+                "open": scaled("f46"),
+                "volume": data.get("f47"),
+                "amount": data.get("f48"),
+                "previous_close": scaled("f60"),
+                "market_cap": data.get("f116"),
+                "float_market_cap": data.get("f117"),
+                "pe_ttm": scaled("f162"),
+                "pb": scaled("f167"),
+                "pct_change": scaled("f170"),
+                "amplitude": scaled("f171"),
+            }
+
+        return self._cached(f"quote:{symbol}", 20, load)

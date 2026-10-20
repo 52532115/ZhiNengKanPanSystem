@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="A 股与 ETF 趋势、动量及风险研究仪表盘">
+  <title>观澜 · A 股与 ETF 研究台</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="grain"></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="观澜首页">
+      <span class="brand-mark">澜</span>
+      <span><strong>观澜</strong><small>A 股 · ETF 研究台</small></span>
+    </a>
+    <div class="market-pill" id="marketPill"><i></i><span>市场环境加载中</span></div>
+    <button class="watch-button" id="watchButton" type="button">＋ 加入自选</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="eyebrow">A-SHARE RESEARCH DESK</div>
+      <h1>读懂趋势，<em>敬畏风险。</em></h1>
+      <p>用可解释的量价信号审视每一次决策。输入沪深京 A 股或场内 ETF 代码，获得趋势、动量与风险的交叉分析。</p>
+      <form class="search" id="searchForm">
+        <label class="sr-only" for="symbolInput">股票或 ETF 代码</label>
+        <span class="search-icon">⌕</span>
+        <input id="symbolInput" inputmode="numeric" maxlength="8" value="600519" placeholder="股票或 ETF 代码，如 600519 / 510300" autocomplete="off">
+        <button type="submit">开始分析 <span>→</span></button>
+      </form>
+      <div class="quick-picks" aria-label="常用股票和 ETF">
+        <span>热门 A 股</span>
+        <button data-symbol="600519">贵州茅台</button>
+        <button data-symbol="300750">宁德时代</button>
+        <span class="pick-group">热门 ETF</span>
+        <button data-symbol="510300">沪深300ETF</button>
+        <button data-symbol="588000">科创50ETF</button>
+        <button data-symbol="159915">创业板ETF</button>
+        <button data-symbol="518880">黄金ETF</button>
+      </div>
+    </section>
+
+    <section class="status-message hidden" id="statusMessage" role="status"></section>
+
+    <section id="dashboard" class="dashboard hidden">
+      <div class="stock-heading">
+        <div>
+          <div class="stock-id"><span id="stockCode">—</span><span class="asset-badge" id="assetBadge">—</span><span id="asOf">—</span></div>
+          <h2><span id="stockName">—</span> <strong id="stockPrice">—</strong></h2>
+        </div>
+        <div class="day-change" id="dayChange">—</div>
+      </div>
+
+      <div class="overview-grid">
+        <article class="score-card panel">
+          <div class="panel-label">综合研判</div>
+          <div class="score-wrap">
+            <div class="score-ring" id="scoreRing"><div><strong id="scoreValue">—</strong><small>/ 100</small></div></div>
+            <div class="verdict">
+              <span class="verdict-tag" id="verdictTag">—</span>
+              <h3 id="verdictSummary">—</h3>
+              <p id="positionGuidance">—</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="levels-card panel">
+          <div class="panel-label">关键价格参考</div>
+          <div class="levels">
+            <div><small>附近支撑</small><strong id="supportLevel">—</strong><span>观察承接</span></div>
+            <div><small>上方压力</small><strong id="resistanceLevel">—</strong><span>确认突破</span></div>
+            <div><small>风险参考</small><strong id="riskLevel">—</strong><span>纪律优先</span></div>
+          </div>
+        </article>
+      </div>
+
+      <div class="detail-grid">
+        <article class="chart-card panel">
+          <div class="panel-head">
+            <div><div class="panel-label">量价趋势</div><h3>近 180 个交易日</h3></div>
+            <div class="legend">
+              <span class="price-line">收盘</span><span class="ma20-line">MA20</span><span class="ma60-line">MA60</span>
+              <span class="volume-bar">成交量</span><span class="vol5-line">VOL5</span><span class="vol10-line">VOL10</span>
+            </div>
+          </div>
+          <div class="chart-shell"><canvas id="priceChart"></canvas><div class="chart-tooltip hidden" id="chartTooltip"></div></div>
+        </article>
+
+        <article class="signals-card panel">
+          <div class="panel-label">信号拆解</div>
+          <h3>判断依据</h3>
+          <div class="reasons" id="reasons"></div>
+        </article>
+      </div>
+
+      <article class="metrics-card panel">
+        <div class="panel-head">
+          <div><div class="panel-label">核心指标</div><h3>收益与风险画像</h3></div>
+          <span class="method" id="methodology"></span>
+        </div>
+        <div class="metrics" id="metrics"></div>
+      </article>
+
+      <section class="watchlist-section">
+        <div class="section-head"><div><span>MY WATCHLIST</span><h2>我的自选</h2></div><p>保存在当前浏览器中</p></div>
+        <div class="watchlist" id="watchlist"></div>
+      </section>
+    </section>
+
+    <section class="disclaimer">
+      <strong>风险声明</strong>
+      <p>本工具仅用于行情研究与信息辅助，不构成针对任何人的证券投资建议，也不预测或保证收益。模型只分析历史量价数据，未纳入财务造假、停复牌、重大事项和个人风险承受能力；ETF 分析也未纳入跟踪误差、溢折价、费率和底层资产估值。市场有风险，决策前请独立判断，必要时咨询持牌专业人士。</p>
+    </section>
+  </main>
+
+  <footer><span>观澜研究台 · A 股与 ETF · 规则透明</span><span>数据更新取决于公开行情源</span></footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>
