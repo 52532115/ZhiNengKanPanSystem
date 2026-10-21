@@ -46,7 +46,17 @@ def normalize_symbol(raw: str) -> str:
     return value
 
 
+def is_bse(symbol: str) -> bool:
+    """北交所代码段：43/83/87/88，以及 2024 年启用的 92 段。
+
+    92 段如果按首位 9 处理会落到沪市通道（1.920xxx），上游直接返回空数据。
+    """
+    return symbol.startswith(("43", "83", "87", "88", "92"))
+
+
 def security_id(symbol: str) -> str:
+    if is_bse(symbol):
+        return f"0.{symbol}"
     market = "1" if symbol.startswith(("5", "6", "9")) else "0"
     return f"{market}.{symbol}"
 
@@ -134,7 +144,8 @@ class MarketDataClient:
     ) -> dict[str, Any]:
         if market is None:
             market = "1" if (index and symbol == "000001") or symbol.startswith(("5", "6", "9")) else "0"
-        prefix = "sh" if market == "1" else "sz"
+        # 北交所备用源用 bj 前缀；沪市用 sh，其余用 sz。
+        prefix = "bj" if is_bse(symbol) else ("sh" if market == "1" else "sz")
         key = f"{prefix}{symbol}"
         payload = self._get_json(
             self.FALLBACK_KLINE_URL,
@@ -253,26 +264,36 @@ class MarketDataClient:
                 self.QUOTE_URL,
                 {
                     "secid": security_id(symbol),
-                    "fields": "f57,f58,f43,f44,f45,f46,f47,f48,f60,f116,f117,f162,f167,f170,f171",
+                    "fields": "f57,f58,f59,f43,f44,f45,f46,f47,f48,f60,f116,f117,f162,f167,f170,f171",
                 },
             )
             data = payload.get("data") or {}
 
-            def scaled(field: str, divisor: float = 100.0) -> float | None:
+            # f59 是价格小数位数：A 股 2 位，场内基金 3 位。f43 等价格字段
+            # 必须按 10**digits 缩放；统一除以 100 会把 ETF 价格放大 10 倍。
+            try:
+                digits = int(data.get("f59"))
+            except (TypeError, ValueError):
+                digits = 2
+            if not 0 <= digits <= 4:
+                digits = 2
+            price_scale = 10 ** digits
+
+            def scaled(field: str, divisor: float = 100.0, precision: int = 3) -> float | None:
                 value = data.get(field)
-                return None if value in (None, "-") else round(float(value) / divisor, 3)
+                return None if value in (None, "-") else round(float(value) / divisor, precision)
 
             return {
                 "symbol": data.get("f57") or symbol,
                 "name": clean_name(data.get("f58"), symbol),
                 "asset_type": instrument_type(symbol),
-                "price": scaled("f43"),
-                "high": scaled("f44"),
-                "low": scaled("f45"),
-                "open": scaled("f46"),
+                "price": scaled("f43", price_scale, digits),
+                "high": scaled("f44", price_scale, digits),
+                "low": scaled("f45", price_scale, digits),
+                "open": scaled("f46", price_scale, digits),
                 "volume": data.get("f47"),
                 "amount": data.get("f48"),
-                "previous_close": scaled("f60"),
+                "previous_close": scaled("f60", price_scale, digits),
                 "market_cap": data.get("f116"),
                 "float_market_cap": data.get("f117"),
                 "pe_ttm": scaled("f162"),
