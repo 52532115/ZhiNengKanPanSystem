@@ -79,6 +79,7 @@ FACTOR_LABELS: dict[str, str] = {
     "trend": "价格 vs MA20",
     "align": "MA20 vs MA60",
     "long": "价格 vs MA120",
+    "rs": "相对强弱（20 日）",
     "macd": "MACD 柱与斜率",
     "rsi": "RSI 区间",
     "ret20": "近 20 日涨幅",
@@ -114,11 +115,19 @@ WEIGHTS_V2: dict[str, tuple[int, ...]] = {
     "drawdown": (-7,),
 }
 
+# v3：在 v2 基础上加入相对强弱因子（20 日超额收益 ±3% 触发，±6 分）。
+# 基准行情通过 analyze(benchmark=...) 注入；缺失时该因子记 0 分。
+WEIGHTS_V3: dict[str, tuple[int, ...]] = {
+    **WEIGHTS_V2,
+    "rs": (6, -6),
+}
+
 WEIGHT_PROFILES: dict[str, dict[str, tuple[int, ...]]] = {
     "v1": WEIGHTS_V1,
     "v2": WEIGHTS_V2,
+    "v3": WEIGHTS_V3,
 }
-DEFAULT_PROFILE = "v2"
+DEFAULT_PROFILE = "v3"
 DEFAULT_WEIGHTS = WEIGHT_PROFILES[DEFAULT_PROFILE]
 
 
@@ -133,9 +142,39 @@ FACTOR_META: dict[str, tuple[str, str]] = {
 }
 
 
+def _relative_excess(
+    rows: list[dict[str, Any]],
+    benchmark: dict[str, Any] | None,
+    days: int = 20,
+) -> tuple[float, str] | None:
+    """个股相对基准的 N 日超额收益；重合交易日不足时返回 None。"""
+    if not benchmark:
+        return None
+    close_by_date = benchmark.get("close_by_date")
+    if close_by_date is None:
+        close_by_date = {
+            row["date"]: row["close"]
+            for row in benchmark.get("rows", [])
+            if row.get("close")
+        }
+    pairs = [
+        (row["date"], row["close"], close_by_date[row["date"]])
+        for row in rows
+        if row.get("close") and row["date"] in close_by_date
+    ]
+    if len(pairs) <= days:
+        return None
+    start = pairs[-days - 1]
+    stock_return = (pairs[-1][1] / start[1] - 1) * 100
+    bench_return = (pairs[-1][2] / start[2] - 1) * 100
+    name = benchmark.get("name") or benchmark.get("symbol") or "基准"
+    return stock_return - bench_return, name
+
+
 def score_factors(
     history: dict[str, Any],
     weights: dict[str, tuple[int, ...]] | None = None,
+    benchmark: dict[str, Any] | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
     """把评分拆成单因子贡献，返回 ``(总分, 因子列表)``。
 
@@ -194,6 +233,19 @@ def score_factors(
     else:
         record("long", profile["long"][1], "negative")
 
+    if "rs" in profile:
+        snapshot = _relative_excess(rows, benchmark)
+        if snapshot is None:
+            record("rs", 0, "neutral")
+        else:
+            excess, benchmark_name = snapshot
+            if excess >= 3:
+                record("rs", profile["rs"][0], "positive", f"近 20 日跑赢{benchmark_name} {excess:+.1f}%")
+            elif excess <= -3:
+                record("rs", profile["rs"][1], "negative", f"近 20 日跑输{benchmark_name} {abs(excess):.1f}%")
+            else:
+                record("rs", 0, "neutral")
+
     if histogram[-1] > 0 and dif[-1] > dif[-2]:
         record("macd", profile["macd"][0], "positive", "MACD 动能柱为正且继续改善")
     elif histogram[-1] < 0:
@@ -246,6 +298,7 @@ def analyze(
     history: dict[str, Any],
     quote: dict[str, Any] | None = None,
     weights: dict[str, tuple[int, ...]] | None = None,
+    benchmark: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     rows = history["rows"]
     asset_type = history.get("asset_type", "stock")
@@ -277,7 +330,7 @@ def analyze(
     volume_ma5_series = sma(volumes, 5)
     volume_ma10_series = sma(volumes, 10)
 
-    score, factors = score_factors(history, weights)
+    score, factors = score_factors(history, weights, benchmark)
     reasons = [
         {"type": factor["tone"], "text": factor["reason"]}
         for factor in factors

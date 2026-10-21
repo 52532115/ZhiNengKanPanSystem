@@ -1,0 +1,2306 @@
+{
+  "generated_at": "2026-10-21 11:20",
+  "params": {
+    "symbols": [
+      "601398",
+      "600941",
+      "600036",
+      "601899",
+      "601658",
+      "601998",
+      "600030",
+      "600276",
+      "000858",
+      "601816",
+      "003816",
+      "688008",
+      "603986",
+      "600025",
+      "300476",
+      "601066",
+      "600031",
+      "601688",
+      "300033",
+      "600999",
+      "600050",
+      "000063",
+      "600886",
+      "688082",
+      "002493",
+      "603019",
+      "603296",
+      "601390",
+      "000657",
+      "000100",
+      "600905",
+      "600795",
+      "002600",
+      "000977",
+      "603893",
+      "601012",
+      "600160",
+      "002460",
+      "000938",
+      "601689",
+      "000630",
+      "600600",
+      "002422",
+      "600048",
+      "601788",
+      "300661",
+      "600027",
+      "600009",
+      "601901",
+      "300418",
+      "600845",
+      "001391",
+      "300628",
+      "000596",
+      "600918",
+      "601878",
+      "601136",
+      "603260",
+      "600588",
+      "688472"
+    ],
+    "days": 600,
+    "stride": 1,
+    "warmup": 130,
+    "horizons": [
+      5,
+      20,
+      60
+    ],
+    "score_base": 50,
+    "weights": "v3",
+    "universe": "hs300",
+    "benchmark": "000300"
+  },
+  "coverage": {
+    "symbols": 60,
+    "samples": 24497,
+    "trading_days": 421,
+    "start_date": "2024-10-28",
+    "end_date": "2026-07-21",
+    "failures": []
+  },
+  "buckets": [
+    {
+      "key": "lt30",
+      "range": "0–29",
+      "label": "高风险",
+      "tone": "negative",
+      "n": 6334,
+      "share": 25.9,
+      "score_mean": 19.1,
+      "horizons": {
+        "5": {
+          "n": 6334,
+          "independent_windows": 1267,
+          "mean": 0.28,
+          "median": 0.0,
+          "p25": -2.48,
+          "p75": 2.57,
+          "worst": -27.43,
+          "best": 38.24,
+          "win_rate": 49.6,
+          "mdd_mean": -3.31,
+          "mdd_worst": -27.43,
+          "excess_n": 6334,
+          "excess_mean": 0.09,
+          "excess_median": -0.38,
+          "excess_win_rate": 44.9
+        },
+        "20": {
+          "n": 6334,
+          "independent_windows": 317,
+          "mean": 2.11,
+          "median": 0.72,
+          "p25": -4.29,
+          "p75": 6.91,
+          "worst": -41.08,
+          "best": 80.65,
+          "win_rate": 53.8,
+          "mdd_mean": -8.26,
+          "mdd_worst": -41.45,
+          "excess_n": 6334,
+          "excess_mean": 1.14,
+          "excess_median": -0.66,
+          "excess_win_rate": 46.3
+        },
+        "60": {
+          "n": 6334,
+          "independent_windows": 106,
+          "mean": 5.43,
+          "median": 1.1,
+          "p25": -7.15,
+          "p75": 11.11,
+          "worst": -45.23,
+          "best": 243.37,
+          "win_rate": 53.7,
+          "mdd_mean": -15.45,
+          "mdd_worst": -55.61,
+          "excess_n": 6334,
+          "excess_mean": 3.42,
+          "excess_median": -0.49,
+          "excess_win_rate": 48.6
+        }
+      }
+    },
+    {
+      "key": "30_44",
+      "range": "30–44",
+      "label": "谨慎",
+      "tone": "negative",
+      "n": 4880,
+      "share": 19.9,
+      "score_mean": 36.4,
+      "horizons": {
+        "5": {
+          "n": 4880,
+          "independent_windows": 976,
+          "mean": 0.12,
+          "median": -0.03,
+          "p25": -2.21,
+          "p75": 2.23,
+          "worst": -31.55,
+          "best": 46.36,
+          "win_rate": 48.5,
+          "mdd_mean": -2.96,
+          "mdd_worst": -32.05,
+          "excess_n": 4880,
+          "excess_mean": -0.16,
+          "excess_median": -0.58,
+          "excess_win_rate": 41.1
+        },
+        "20": {
+          "n": 4880,
+          "independent_windows": 244,
+          "mean": 0.58,
+          "median": -0.37,
+          "p25": -4.62,
+          "p75": 4.55,
+          "worst": -44.62,
+          "best": 91.7,
+          "win_rate": 47.6,
+          "mdd_mean": -7.56,
+          "mdd_worst": -48.64,
+          "excess_n": 4880,
+          "excess_mean": -0.26,
+          "excess_median": -1.82,
+          "excess_win_rate": 39.0
+        },
+        "60": {
+          "n": 4880,
+          "independent_windows": 81,
+          "mean": 2.46,
+          "median": -0.98,
+          "p25": -7.29,
+          "p75": 8.18,
+          "worst": -51.34,
+          "best": 190.35,
+          "win_rate": 46.6,
+          "mdd_mean": -13.83,
+          "mdd_worst": -55.61,
+          "excess_n": 4880,
+          "excess_mean": 0.13,
+          "excess_median": -3.26,
+          "excess_win_rate": 39.1
+        }
+      }
+    },
+    {
+      "key": "45_59",
+      "range": "45–59",
+      "label": "中性观察",
+      "tone": "neutral",
+      "n": 3611,
+      "share": 14.7,
+      "score_mean": 52.0,
+      "horizons": {
+        "5": {
+          "n": 3611,
+          "independent_windows": 722,
+          "mean": 0.35,
+          "median": -0.18,
+          "p25": -2.83,
+          "p75": 2.62,
+          "worst": -29.27,
+          "best": 43.68,
+          "win_rate": 47.7,
+          "mdd_mean": -3.75,
+          "mdd_worst": -29.27,
+          "excess_n": 3611,
+          "excess_mean": 0.13,
+          "excess_median": -0.5,
+          "excess_win_rate": 44.4
+        },
+        "20": {
+          "n": 3611,
+          "independent_windows": 181,
+          "mean": 1.14,
+          "median": -0.9,
+          "p25": -5.65,
+          "p75": 5.53,
+          "worst": -52.85,
+          "best": 101.08,
+          "win_rate": 45.1,
+          "mdd_mean": -9.49,
+          "mdd_worst": -52.85,
+          "excess_n": 3611,
+          "excess_mean": 0.35,
+          "excess_median": -1.76,
+          "excess_win_rate": 40.2
+        },
+        "60": {
+          "n": 3611,
+          "independent_windows": 60,
+          "mean": 5.02,
+          "median": -0.71,
+          "p25": -8.52,
+          "p75": 10.96,
+          "worst": -50.8,
+          "best": 202.73,
+          "win_rate": 48.3,
+          "mdd_mean": -16.96,
+          "mdd_worst": -59.44,
+          "excess_n": 3611,
+          "excess_mean": 2.58,
+          "excess_median": -2.81,
+          "excess_win_rate": 41.7
+        }
+      }
+    },
+    {
+      "key": "60_74",
+      "range": "60–74",
+      "label": "谨慎偏多",
+      "tone": "positive",
+      "n": 5257,
+      "share": 21.5,
+      "score_mean": 67.0,
+      "horizons": {
+        "5": {
+          "n": 5257,
+          "independent_windows": 1051,
+          "mean": 0.5,
+          "median": -0.15,
+          "p25": -2.67,
+          "p75": 2.9,
+          "worst": -23.93,
+          "best": 46.79,
+          "win_rate": 48.0,
+          "mdd_mean": -3.94,
+          "mdd_worst": -23.93,
+          "excess_n": 5257,
+          "excess_mean": 0.4,
+          "excess_median": -0.34,
+          "excess_win_rate": 46.6
+        },
+        "20": {
+          "n": 5257,
+          "independent_windows": 263,
+          "mean": 1.43,
+          "median": -0.51,
+          "p25": -5.78,
+          "p75": 5.82,
+          "worst": -52.07,
+          "best": 86.72,
+          "win_rate": 46.7,
+          "mdd_mean": -9.85,
+          "mdd_worst": -52.07,
+          "excess_n": 5257,
+          "excess_mean": 0.81,
+          "excess_median": -1.26,
+          "excess_win_rate": 44.0
+        },
+        "60": {
+          "n": 5257,
+          "independent_windows": 88,
+          "mean": 3.25,
+          "median": -1.41,
+          "p25": -9.34,
+          "p75": 9.89,
+          "worst": -53.37,
+          "best": 191.9,
+          "win_rate": 45.7,
+          "mdd_mean": -18.02,
+          "mdd_worst": -59.44,
+          "excess_n": 5257,
+          "excess_mean": 1.26,
+          "excess_median": -3.28,
+          "excess_win_rate": 41.0
+        }
+      }
+    },
+    {
+      "key": "ge75",
+      "range": "75–100",
+      "label": "偏积极",
+      "tone": "positive",
+      "n": 4415,
+      "share": 18.0,
+      "score_mean": 82.2,
+      "horizons": {
+        "5": {
+          "n": 4415,
+          "independent_windows": 883,
+          "mean": 0.19,
+          "median": -0.33,
+          "p25": -2.76,
+          "p75": 2.54,
+          "worst": -22.64,
+          "best": 48.09,
+          "win_rate": 46.1,
+          "mdd_mean": -3.65,
+          "mdd_worst": -22.64,
+          "excess_n": 4415,
+          "excess_mean": 0.01,
+          "excess_median": -0.58,
+          "excess_win_rate": 44.0
+        },
+        "20": {
+          "n": 4415,
+          "independent_windows": 221,
+          "mean": 1.04,
+          "median": -0.27,
+          "p25": -5.59,
+          "p75": 5.68,
+          "worst": -36.92,
+          "best": 74.16,
+          "win_rate": 48.2,
+          "mdd_mean": -8.7,
+          "mdd_worst": -36.92,
+          "excess_n": 4415,
+          "excess_mean": -0.03,
+          "excess_median": -1.33,
+          "excess_win_rate": 43.0
+        },
+        "60": {
+          "n": 4415,
+          "independent_windows": 74,
+          "mean": 2.05,
+          "median": -1.42,
+          "p25": -9.09,
+          "p75": 8.72,
+          "worst": -45.31,
+          "best": 103.69,
+          "win_rate": 46.0,
+          "mdd_mean": -15.9,
+          "mdd_worst": -54.1,
+          "excess_n": 4415,
+          "excess_mean": -1.19,
+          "excess_median": -5.2,
+          "excess_win_rate": 36.9
+        }
+      }
+    }
+  ],
+  "ic": {
+    "5": {
+      "ic": -0.019,
+      "n": 24497,
+      "n_effective": 4899,
+      "t": -1.3,
+      "significant": false
+    },
+    "20": {
+      "ic": -0.047,
+      "n": 24497,
+      "n_effective": 1225,
+      "t": -1.66,
+      "significant": false
+    },
+    "60": {
+      "ic": -0.058,
+      "n": 24497,
+      "n_effective": 408,
+      "t": -1.17,
+      "significant": false
+    }
+  },
+  "spread": {
+    "5": {
+      "top_minus_bottom": -0.09,
+      "monotone_pairs": "2/4"
+    },
+    "20": {
+      "top_minus_bottom": -1.07,
+      "monotone_pairs": "2/4"
+    },
+    "60": {
+      "top_minus_bottom": -3.38,
+      "monotone_pairs": "1/4"
+    }
+  },
+  "excess": {
+    "available": true,
+    "benchmark": {
+      "symbol": "000300",
+      "name": "沪深300"
+    },
+    "buckets": [
+      {
+        "key": "lt30",
+        "range": "0–29",
+        "label": "高风险",
+        "tone": "negative",
+        "n": 6334,
+        "share": 25.9,
+        "horizons": {
+          "5": {
+            "n": 6334,
+            "mean": 0.09,
+            "median": -0.38,
+            "win_rate": 44.9
+          },
+          "20": {
+            "n": 6334,
+            "mean": 1.14,
+            "median": -0.66,
+            "win_rate": 46.3
+          },
+          "60": {
+            "n": 6334,
+            "mean": 3.42,
+            "median": -0.49,
+            "win_rate": 48.6
+          }
+        }
+      },
+      {
+        "key": "30_44",
+        "range": "30–44",
+        "label": "谨慎",
+        "tone": "negative",
+        "n": 4880,
+        "share": 19.9,
+        "horizons": {
+          "5": {
+            "n": 4880,
+            "mean": -0.16,
+            "median": -0.58,
+            "win_rate": 41.1
+          },
+          "20": {
+            "n": 4880,
+            "mean": -0.26,
+            "median": -1.82,
+            "win_rate": 39.0
+          },
+          "60": {
+            "n": 4880,
+            "mean": 0.13,
+            "median": -3.26,
+            "win_rate": 39.1
+          }
+        }
+      },
+      {
+        "key": "45_59",
+        "range": "45–59",
+        "label": "中性观察",
+        "tone": "neutral",
+        "n": 3611,
+        "share": 14.7,
+        "horizons": {
+          "5": {
+            "n": 3611,
+            "mean": 0.13,
+            "median": -0.5,
+            "win_rate": 44.4
+          },
+          "20": {
+            "n": 3611,
+            "mean": 0.35,
+            "median": -1.76,
+            "win_rate": 40.2
+          },
+          "60": {
+            "n": 3611,
+            "mean": 2.58,
+            "median": -2.81,
+            "win_rate": 41.7
+          }
+        }
+      },
+      {
+        "key": "60_74",
+        "range": "60–74",
+        "label": "谨慎偏多",
+        "tone": "positive",
+        "n": 5257,
+        "share": 21.5,
+        "horizons": {
+          "5": {
+            "n": 5257,
+            "mean": 0.4,
+            "median": -0.34,
+            "win_rate": 46.6
+          },
+          "20": {
+            "n": 5257,
+            "mean": 0.81,
+            "median": -1.26,
+            "win_rate": 44.0
+          },
+          "60": {
+            "n": 5257,
+            "mean": 1.26,
+            "median": -3.28,
+            "win_rate": 41.0
+          }
+        }
+      },
+      {
+        "key": "ge75",
+        "range": "75–100",
+        "label": "偏积极",
+        "tone": "positive",
+        "n": 4415,
+        "share": 18.0,
+        "horizons": {
+          "5": {
+            "n": 4415,
+            "mean": 0.01,
+            "median": -0.58,
+            "win_rate": 44.0
+          },
+          "20": {
+            "n": 4415,
+            "mean": -0.03,
+            "median": -1.33,
+            "win_rate": 43.0
+          },
+          "60": {
+            "n": 4415,
+            "mean": -1.19,
+            "median": -5.2,
+            "win_rate": 36.9
+          }
+        }
+      }
+    ],
+    "ic": {
+      "5": {
+        "ic": -0.011,
+        "n": 24497,
+        "n_effective": 4899,
+        "t": -0.79,
+        "significant": false
+      },
+      "20": {
+        "ic": -0.038,
+        "n": 24497,
+        "n_effective": 1225,
+        "t": -1.33,
+        "significant": false
+      },
+      "60": {
+        "ic": -0.086,
+        "n": 24497,
+        "n_effective": 408,
+        "t": -1.73,
+        "significant": false
+      }
+    },
+    "spread": {
+      "5": {
+        "top_minus_bottom": -0.08,
+        "monotone_pairs": "2/4"
+      },
+      "20": {
+        "top_minus_bottom": -1.17,
+        "monotone_pairs": "2/4"
+      },
+      "60": {
+        "top_minus_bottom": -4.61,
+        "monotone_pairs": "1/4"
+      }
+    }
+  },
+  "quantiles": [
+    {
+      "group": "Q1",
+      "score_low": 0,
+      "score_high": 25,
+      "n": 4899,
+      "horizons": {
+        "5": {
+          "mean": 0.39,
+          "win_rate": 50.3
+        },
+        "20": {
+          "mean": 2.44,
+          "win_rate": 54.8
+        },
+        "60": {
+          "mean": 5.74,
+          "win_rate": 54.3
+        }
+      }
+    },
+    {
+      "group": "Q2",
+      "score_low": 25,
+      "score_high": 39,
+      "n": 4900,
+      "horizons": {
+        "5": {
+          "mean": -0.01,
+          "win_rate": 47.4
+        },
+        "20": {
+          "mean": 0.66,
+          "win_rate": 48.6
+        },
+        "60": {
+          "mean": 3.42,
+          "win_rate": 48.9
+        }
+      }
+    },
+    {
+      "group": "Q3",
+      "score_low": 39,
+      "score_high": 59,
+      "n": 4899,
+      "horizons": {
+        "5": {
+          "mean": 0.33,
+          "win_rate": 48.6
+        },
+        "20": {
+          "mean": 0.99,
+          "win_rate": 45.6
+        },
+        "60": {
+          "mean": 3.96,
+          "win_rate": 47.1
+        }
+      }
+    },
+    {
+      "group": "Q4",
+      "score_low": 59,
+      "score_high": 73,
+      "n": 4900,
+      "horizons": {
+        "5": {
+          "mean": 0.47,
+          "win_rate": 47.8
+        },
+        "20": {
+          "mean": 1.39,
+          "win_rate": 47.0
+        },
+        "60": {
+          "mean": 3.37,
+          "win_rate": 45.7
+        }
+      }
+    },
+    {
+      "group": "Q5",
+      "score_low": 73,
+      "score_high": 95,
+      "n": 4899,
+      "horizons": {
+        "5": {
+          "mean": 0.27,
+          "win_rate": 46.5
+        },
+        "20": {
+          "mean": 1.15,
+          "win_rate": 47.8
+        },
+        "60": {
+          "mean": 2.01,
+          "win_rate": 45.9
+        }
+      }
+    }
+  ],
+  "per_symbol_detail": [
+    {
+      "symbol": "601398",
+      "name": "XD工商银",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 61.8,
+      "ic20": -0.069,
+      "ic60": -0.116,
+      "spread20": 0.59,
+      "spread60": -1.5,
+      "win_top20": 53.1,
+      "n_top": 160,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600941",
+      "name": "中国移动",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 55.2,
+      "ic20": -0.153,
+      "ic60": -0.1,
+      "spread20": -2.49,
+      "spread60": -3.87,
+      "win_top20": 40.9,
+      "n_top": 110,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600036",
+      "name": "招商银行",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 58.3,
+      "ic20": 0.039,
+      "ic60": -0.101,
+      "spread20": -0.57,
+      "spread60": -2.52,
+      "win_top20": 67.2,
+      "n_top": 137,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "601899",
+      "name": "紫金矿业",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 56.1,
+      "ic20": 0.08,
+      "ic60": 0.115,
+      "spread20": 3.72,
+      "spread60": 7.44,
+      "win_top20": 67.7,
+      "n_top": 127,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "601658",
+      "name": "邮储银行",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 57.1,
+      "ic20": -0.007,
+      "ic60": 0.073,
+      "spread20": 0.18,
+      "spread60": 2.29,
+      "win_top20": 56.0,
+      "n_top": 116,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601998",
+      "name": "中信银行",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 57.4,
+      "ic20": 0.001,
+      "ic60": -0.178,
+      "spread20": -2.24,
+      "spread60": -7.34,
+      "win_top20": 56.2,
+      "n_top": 130,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "600030",
+      "name": "中信证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.2,
+      "ic20": -0.137,
+      "ic60": -0.227,
+      "spread20": -2.31,
+      "spread60": -7.29,
+      "win_top20": 41.8,
+      "n_top": 91,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600276",
+      "name": "恒瑞医药",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.6,
+      "ic20": 0.047,
+      "ic60": 0.111,
+      "spread20": 1.5,
+      "spread60": 6.96,
+      "win_top20": 65.9,
+      "n_top": 82,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "000858",
+      "name": "五粮液",
+      "asset_type": "stock",
+      "n": 412,
+      "score_mean": 40.7,
+      "ic20": 0.028,
+      "ic60": -0.119,
+      "spread20": -0.79,
+      "spread60": -2.21,
+      "win_top20": 14.3,
+      "n_top": 21,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "601816",
+      "name": "京沪高铁",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 48.9,
+      "ic20": -0.202,
+      "ic60": -0.327,
+      "spread20": -2.19,
+      "spread60": -4.47,
+      "win_top20": 32.8,
+      "n_top": 64,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "003816",
+      "name": "中国广核",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 55.3,
+      "ic20": -0.099,
+      "ic60": -0.067,
+      "spread20": -1.65,
+      "spread60": -0.77,
+      "win_top20": 54.2,
+      "n_top": 120,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "688008",
+      "name": "澜起科技",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 54.4,
+      "ic20": 0.094,
+      "ic60": -0.169,
+      "spread20": 1.89,
+      "spread60": -19.16,
+      "win_top20": 73.5,
+      "n_top": 83,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "603986",
+      "name": "兆易创新",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 48.5,
+      "ic20": 0.011,
+      "ic60": -0.275,
+      "spread20": -1.72,
+      "spread60": -26.01,
+      "win_top20": 50.0,
+      "n_top": 22,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "600025",
+      "name": "华能水电",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.3,
+      "ic20": -0.192,
+      "ic60": -0.385,
+      "spread20": -3.88,
+      "spread60": -7.28,
+      "win_top20": 38.2,
+      "n_top": 102,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "300476",
+      "name": "胜宏科技",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 46.5,
+      "ic20": -0.033,
+      "ic60": 0.047,
+      "spread20": -6.55,
+      "spread60": -34.58,
+      "win_top20": 55.6,
+      "n_top": 9,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601066",
+      "name": "中信建投",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 51.9,
+      "ic20": 0.047,
+      "ic60": -0.218,
+      "spread20": 1.22,
+      "spread60": -10.08,
+      "win_top20": 48.5,
+      "n_top": 99,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "600031",
+      "name": "三一重工",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 54.4,
+      "ic20": 0.016,
+      "ic60": -0.269,
+      "spread20": -0.91,
+      "spread60": -6.4,
+      "win_top20": 63.1,
+      "n_top": 122,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "601688",
+      "name": "华泰证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 54.4,
+      "ic20": -0.05,
+      "ic60": -0.037,
+      "spread20": -1.2,
+      "spread60": -4.48,
+      "win_top20": 52.3,
+      "n_top": 111,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "300033",
+      "name": "同花顺",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 41.9,
+      "ic20": -0.148,
+      "ic60": -0.254,
+      "spread20": -3.54,
+      "spread60": -4.59,
+      "win_top20": 32.0,
+      "n_top": 25,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600999",
+      "name": "招商证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.2,
+      "ic20": 0.071,
+      "ic60": -0.265,
+      "spread20": 2.09,
+      "spread60": -8.77,
+      "win_top20": 52.3,
+      "n_top": 88,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "600050",
+      "name": "中国联通",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 48.7,
+      "ic20": -0.368,
+      "ic60": -0.117,
+      "spread20": -7.76,
+      "spread60": -0.72,
+      "win_top20": 23.2,
+      "n_top": 69,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "000063",
+      "name": "中兴通讯",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 44.8,
+      "ic20": -0.055,
+      "ic60": -0.201,
+      "spread20": -0.04,
+      "spread60": -7.07,
+      "win_top20": 42.1,
+      "n_top": 57,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600886",
+      "name": "国投电力",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 53.1,
+      "ic20": -0.323,
+      "ic60": -0.294,
+      "spread20": -6.0,
+      "spread60": -5.19,
+      "win_top20": 20.9,
+      "n_top": 110,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "688082",
+      "name": "盛美上海",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.8,
+      "ic20": 0.111,
+      "ic60": -0.104,
+      "spread20": 2.79,
+      "spread60": -16.53,
+      "win_top20": 60.4,
+      "n_top": 91,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "002493",
+      "name": "荣盛石化",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 50.8,
+      "ic20": -0.168,
+      "ic60": -0.084,
+      "spread20": -1.88,
+      "spread60": -0.14,
+      "win_top20": 53.2,
+      "n_top": 94,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "603019",
+      "name": "中科曙光",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 45.3,
+      "ic20": -0.144,
+      "ic60": -0.146,
+      "spread20": 1.66,
+      "spread60": 0.91,
+      "win_top20": 42.1,
+      "n_top": 38,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "603296",
+      "name": "华勤技术",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.1,
+      "ic20": -0.209,
+      "ic60": -0.405,
+      "spread20": -6.3,
+      "spread60": -19.48,
+      "win_top20": 46.4,
+      "n_top": 84,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601390",
+      "name": "中国中铁",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 46.2,
+      "ic20": -0.093,
+      "ic60": -0.107,
+      "spread20": -2.03,
+      "spread60": -2.75,
+      "win_top20": 33.3,
+      "n_top": 51,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "000657",
+      "name": "中钨高新",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.6,
+      "ic20": -0.076,
+      "ic60": -0.018,
+      "spread20": -11.77,
+      "spread60": -14.91,
+      "win_top20": 66.7,
+      "n_top": 48,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "000100",
+      "name": "TCL科技",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 53.0,
+      "ic20": -0.092,
+      "ic60": -0.451,
+      "spread20": -1.97,
+      "spread60": -18.59,
+      "win_top20": 44.2,
+      "n_top": 104,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600905",
+      "name": "三峡能源",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 51.3,
+      "ic20": -0.33,
+      "ic60": -0.177,
+      "spread20": -2.81,
+      "spread60": -3.01,
+      "win_top20": 13.3,
+      "n_top": 75,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600795",
+      "name": "国电电力",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 55.6,
+      "ic20": -0.094,
+      "ic60": -0.054,
+      "spread20": -1.86,
+      "spread60": -0.48,
+      "win_top20": 52.9,
+      "n_top": 121,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "002600",
+      "name": "领益智造",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 48.4,
+      "ic20": -0.205,
+      "ic60": -0.255,
+      "spread20": -4.47,
+      "spread60": -7.85,
+      "win_top20": 46.8,
+      "n_top": 62,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "000977",
+      "name": "浪潮信息",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 50.4,
+      "ic20": -0.21,
+      "ic60": -0.33,
+      "spread20": -7.88,
+      "spread60": -12.12,
+      "win_top20": 45.8,
+      "n_top": 72,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "603893",
+      "name": "瑞芯微",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 45.9,
+      "ic20": -0.03,
+      "ic60": -0.262,
+      "spread20": -3.86,
+      "spread60": -25.88,
+      "win_top20": 40.5,
+      "n_top": 42,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601012",
+      "name": "隆基绿能",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 45.4,
+      "ic20": 0.086,
+      "ic60": 0.054,
+      "spread20": 1.84,
+      "spread60": 0.93,
+      "win_top20": 38.7,
+      "n_top": 93,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "600160",
+      "name": "巨化股份",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 58.9,
+      "ic20": -0.168,
+      "ic60": -0.355,
+      "spread20": -10.11,
+      "spread60": -18.83,
+      "win_top20": 61.1,
+      "n_top": 131,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "002460",
+      "name": "赣锋锂业",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.0,
+      "ic20": 0.257,
+      "ic60": 0.28,
+      "spread20": 13.34,
+      "spread60": 31.67,
+      "win_top20": 75.0,
+      "n_top": 92,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "000938",
+      "name": "紫光股份",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 49.2,
+      "ic20": -0.128,
+      "ic60": -0.253,
+      "spread20": -7.07,
+      "spread60": -14.49,
+      "win_top20": 49.3,
+      "n_top": 75,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601689",
+      "name": "拓普集团",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 39.7,
+      "ic20": 0.047,
+      "ic60": -0.268,
+      "spread20": 12.79,
+      "spread60": -19.51,
+      "win_top20": 61.9,
+      "n_top": 21,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "000630",
+      "name": "铜陵有色",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 53.4,
+      "ic20": -0.05,
+      "ic60": 0.076,
+      "spread20": -0.57,
+      "spread60": 5.67,
+      "win_top20": 59.8,
+      "n_top": 122,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600600",
+      "name": "青岛啤酒",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 47.4,
+      "ic20": -0.1,
+      "ic60": -0.171,
+      "spread20": -0.53,
+      "spread60": -2.96,
+      "win_top20": 36.1,
+      "n_top": 61,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "002422",
+      "name": "科伦药业",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 52.9,
+      "ic20": -0.073,
+      "ic60": -0.13,
+      "spread20": -0.12,
+      "spread60": -4.68,
+      "win_top20": 48.6,
+      "n_top": 107,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600048",
+      "name": "保利发展",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 35.7,
+      "ic20": -0.083,
+      "ic60": -0.189,
+      "spread20": -6.61,
+      "spread60": -6.95,
+      "win_top20": 0.0,
+      "n_top": 7,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601788",
+      "name": "光大证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 48.2,
+      "ic20": -0.037,
+      "ic60": -0.128,
+      "spread20": -1.63,
+      "spread60": -3.52,
+      "win_top20": 35.2,
+      "n_top": 54,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "300661",
+      "name": "圣邦股份",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 43.5,
+      "ic20": -0.186,
+      "ic60": -0.208,
+      "spread20": -2.63,
+      "spread60": -9.05,
+      "win_top20": 42.1,
+      "n_top": 38,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600027",
+      "name": "华电国际",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 51.3,
+      "ic20": -0.432,
+      "ic60": -0.393,
+      "spread20": -8.48,
+      "spread60": -7.07,
+      "win_top20": 28.9,
+      "n_top": 90,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600009",
+      "name": "上海机场",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 45.4,
+      "ic20": -0.131,
+      "ic60": -0.139,
+      "spread20": -2.56,
+      "spread60": -2.39,
+      "win_top20": 8.2,
+      "n_top": 49,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601901",
+      "name": "方正证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 50.7,
+      "ic20": -0.19,
+      "ic60": -0.123,
+      "spread20": -3.03,
+      "spread60": -2.09,
+      "win_top20": 48.5,
+      "n_top": 68,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "300418",
+      "name": "昆仑万维",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 39.3,
+      "ic20": -0.087,
+      "ic60": -0.048,
+      "spread20": 2.94,
+      "spread60": 2.79,
+      "win_top20": 61.3,
+      "n_top": 31,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600845",
+      "name": "宝信软件",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 43.2,
+      "ic20": -0.24,
+      "ic60": -0.322,
+      "spread20": -6.39,
+      "spread60": -13.99,
+      "win_top20": 27.3,
+      "n_top": 55,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "001391",
+      "name": "国货航",
+      "asset_type": "stock",
+      "n": 247,
+      "score_mean": 38.1,
+      "ic20": -0.222,
+      "ic60": 0.004,
+      "spread20": -0.16,
+      "spread60": 2.8,
+      "win_top20": 0.0,
+      "n_top": 7,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "300628",
+      "name": "亿联网络",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 53.1,
+      "ic20": -0.347,
+      "ic60": -0.5,
+      "spread20": -7.92,
+      "spread60": -14.71,
+      "win_top20": 43.4,
+      "n_top": 106,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "000596",
+      "name": "古井贡酒",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 33.4,
+      "ic20": 0.058,
+      "ic60": -0.252,
+      "spread20": -4.72,
+      "spread60": -16.54,
+      "win_top20": 20.0,
+      "n_top": 20,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "600918",
+      "name": "中泰证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 49.1,
+      "ic20": 0.019,
+      "ic60": 0.025,
+      "spread20": 0.59,
+      "spread60": -0.3,
+      "win_top20": 50.8,
+      "n_top": 59,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "601878",
+      "name": "浙商证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 46.6,
+      "ic20": -0.127,
+      "ic60": -0.066,
+      "spread20": -0.02,
+      "spread60": -0.68,
+      "win_top20": 53.5,
+      "n_top": 43,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601136",
+      "name": "首创证券",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 43.9,
+      "ic20": -0.053,
+      "ic60": -0.119,
+      "spread20": -1.79,
+      "spread60": -2.86,
+      "win_top20": 45.8,
+      "n_top": 48,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "603260",
+      "name": "合盛硅业",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 43.2,
+      "ic20": -0.322,
+      "ic60": -0.318,
+      "spread20": -9.08,
+      "spread60": -11.83,
+      "win_top20": 12.0,
+      "n_top": 50,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "600588",
+      "name": "用友网络",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 35.6,
+      "ic20": -0.161,
+      "ic60": -0.12,
+      "spread20": -5.97,
+      "spread60": -6.92,
+      "win_top20": 31.8,
+      "n_top": 22,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "688472",
+      "name": "阿特斯",
+      "asset_type": "stock",
+      "n": 411,
+      "score_mean": 35.9,
+      "ic20": -0.061,
+      "ic60": 0.141,
+      "spread20": 18.54,
+      "spread60": 46.56,
+      "win_top20": 82.8,
+      "n_top": 29,
+      "verdict": "反向"
+    }
+  ],
+  "consistency": {
+    "symbols": 60,
+    "positive_ic20": 16,
+    "positive_ic60": 10,
+    "divergent": false
+  },
+  "factors": [
+    {
+      "key": "drawdown",
+      "label": "近 120 日回撤",
+      "weight": "−7",
+      "n_positive": 0,
+      "n_negative": 7772,
+      "n_neutral": 16725,
+      "return_positive": null,
+      "return_negative": 3.46,
+      "return_neutral": 0.33,
+      "edge": -3.13,
+      "basis": "未触发 vs 扣分",
+      "hit_positive": null,
+      "hit_negative": 53.6,
+      "verdict": "方向相反",
+      "excess_edge": -3.18,
+      "excess_basis": "未触发 vs 扣分",
+      "excess_verdict": "方向相反"
+    },
+    {
+      "key": "ret20",
+      "label": "近 20 日涨幅",
+      "weight": "+3 / −4 / −2",
+      "n_positive": 9673,
+      "n_negative": 3675,
+      "n_neutral": 11149,
+      "return_positive": 1.1,
+      "return_negative": 3.95,
+      "return_neutral": 0.65,
+      "edge": -2.85,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 47.1,
+      "hit_negative": 57.9,
+      "verdict": "方向相反",
+      "excess_edge": -2.77,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "方向相反"
+    },
+    {
+      "key": "volatility",
+      "label": "年化波动率",
+      "weight": "+5 / −9",
+      "n_positive": 9782,
+      "n_negative": 4106,
+      "n_neutral": 10609,
+      "return_positive": 0.39,
+      "return_negative": 1.85,
+      "return_neutral": 1.98,
+      "edge": -1.46,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 47.3,
+      "hit_negative": 44.8,
+      "verdict": "方向相反",
+      "excess_edge": -3.0,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "方向相反"
+    },
+    {
+      "key": "rsi",
+      "label": "RSI 区间",
+      "weight": "+3 / −3 / −2",
+      "n_positive": 11718,
+      "n_negative": 2891,
+      "n_neutral": 9888,
+      "return_positive": 1.09,
+      "return_negative": 2.43,
+      "return_neutral": 1.28,
+      "edge": -1.34,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 46.6,
+      "hit_negative": 56.0,
+      "verdict": "方向相反",
+      "excess_edge": -0.46,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "接近噪声"
+    },
+    {
+      "key": "align",
+      "label": "MA20 vs MA60",
+      "weight": "+3 / −3",
+      "n_positive": 12136,
+      "n_negative": 12361,
+      "n_neutral": 0,
+      "return_positive": 1.04,
+      "return_negative": 1.6,
+      "return_neutral": null,
+      "edge": -0.56,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 45.7,
+      "hit_negative": 51.7,
+      "verdict": "接近噪声",
+      "excess_edge": -0.62,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "接近噪声"
+    },
+    {
+      "key": "macd",
+      "label": "MACD 柱与斜率",
+      "weight": "+9 / −8",
+      "n_positive": 9323,
+      "n_negative": 12282,
+      "n_neutral": 2892,
+      "return_positive": 1.58,
+      "return_negative": 1.08,
+      "return_neutral": 1.53,
+      "edge": 0.5,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 49.4,
+      "hit_negative": 48.3,
+      "verdict": "弱有效",
+      "excess_edge": 0.88,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "弱有效"
+    },
+    {
+      "key": "rs",
+      "label": "相对强弱（20 日）",
+      "weight": "+6 / −6",
+      "n_positive": 7072,
+      "n_negative": 9979,
+      "n_neutral": 7446,
+      "return_positive": 1.58,
+      "return_negative": 1.3,
+      "return_neutral": 1.12,
+      "edge": 0.28,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 46.3,
+      "hit_negative": 50.2,
+      "verdict": "弱有效",
+      "excess_edge": 0.36,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "弱有效"
+    },
+    {
+      "key": "long",
+      "label": "价格 vs MA120",
+      "weight": "+5 / −5",
+      "n_positive": 12832,
+      "n_negative": 11665,
+      "n_neutral": 0,
+      "return_positive": 1.21,
+      "return_negative": 1.45,
+      "return_neutral": null,
+      "edge": -0.24,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 46.0,
+      "hit_negative": 51.8,
+      "verdict": "接近噪声",
+      "excess_edge": 0.02,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "弱有效"
+    },
+    {
+      "key": "volume",
+      "label": "量比 + 当日涨跌",
+      "weight": "+3 / −3",
+      "n_positive": 3087,
+      "n_negative": 868,
+      "n_neutral": 20542,
+      "return_positive": 1.78,
+      "return_negative": 1.57,
+      "return_neutral": 1.24,
+      "edge": 0.21,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 48.4,
+      "hit_negative": 50.6,
+      "verdict": "弱有效",
+      "excess_edge": 0.69,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "弱有效"
+    },
+    {
+      "key": "trend",
+      "label": "价格 vs MA20",
+      "weight": "+8 / −8",
+      "n_positive": 11832,
+      "n_negative": 12665,
+      "n_neutral": 0,
+      "return_positive": 1.39,
+      "return_negative": 1.26,
+      "return_neutral": null,
+      "edge": 0.13,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 47.4,
+      "hit_negative": 50.0,
+      "verdict": "弱有效",
+      "excess_edge": 0.35,
+      "excess_basis": "加分 vs 扣分",
+      "excess_verdict": "弱有效"
+    }
+  ],
+  "per_symbol": [
+    {
+      "symbol": "601398",
+      "name": "XD工商银",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600941",
+      "name": "中国移动",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600036",
+      "name": "招商银行",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601899",
+      "name": "紫金矿业",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601658",
+      "name": "邮储银行",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601998",
+      "name": "中信银行",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600030",
+      "name": "中信证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600276",
+      "name": "恒瑞医药",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000858",
+      "name": "五粮液",
+      "asset_type": "stock",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 412
+    },
+    {
+      "symbol": "601816",
+      "name": "京沪高铁",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "003816",
+      "name": "中国广核",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "688008",
+      "name": "澜起科技",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "603986",
+      "name": "兆易创新",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600025",
+      "name": "华能水电",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "300476",
+      "name": "胜宏科技",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601066",
+      "name": "中信建投",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600031",
+      "name": "三一重工",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601688",
+      "name": "华泰证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "300033",
+      "name": "同花顺",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600999",
+      "name": "招商证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600050",
+      "name": "中国联通",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000063",
+      "name": "中兴通讯",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600886",
+      "name": "国投电力",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "688082",
+      "name": "盛美上海",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "002493",
+      "name": "荣盛石化",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "603019",
+      "name": "中科曙光",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-15",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "603296",
+      "name": "华勤技术",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601390",
+      "name": "中国中铁",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000657",
+      "name": "中钨高新",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000100",
+      "name": "TCL科技",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600905",
+      "name": "三峡能源",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600795",
+      "name": "国电电力",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "002600",
+      "name": "领益智造",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000977",
+      "name": "浪潮信息",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "603893",
+      "name": "瑞芯微",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601012",
+      "name": "隆基绿能",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600160",
+      "name": "巨化股份",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "002460",
+      "name": "赣锋锂业",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000938",
+      "name": "紫光股份",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601689",
+      "name": "拓普集团",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000630",
+      "name": "铜陵有色",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600600",
+      "name": "青岛啤酒",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "002422",
+      "name": "科伦药业",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600048",
+      "name": "保利发展",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601788",
+      "name": "光大证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "300661",
+      "name": "圣邦股份",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600027",
+      "name": "华电国际",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-15",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600009",
+      "name": "上海机场",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601901",
+      "name": "方正证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "300418",
+      "name": "昆仑万维",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600845",
+      "name": "宝信软件",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "001391",
+      "name": "国货航",
+      "asset_type": "stock",
+      "rows": 436,
+      "first": "2024-12-30",
+      "last": "2026-10-21",
+      "samples": 247
+    },
+    {
+      "symbol": "300628",
+      "name": "亿联网络",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "000596",
+      "name": "古井贡酒",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600918",
+      "name": "中泰证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601878",
+      "name": "浙商证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "601136",
+      "name": "首创证券",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "603260",
+      "name": "合盛硅业",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "600588",
+      "name": "用友网络",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    },
+    {
+      "symbol": "688472",
+      "name": "阿特斯",
+      "asset_type": "stock",
+      "rows": 600,
+      "first": "2024-04-29",
+      "last": "2026-10-21",
+      "samples": 411
+    }
+  ]
+}

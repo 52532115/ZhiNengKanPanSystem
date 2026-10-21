@@ -20,7 +20,9 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DATA = MarketDataClient()
 
-APP_VERSION = "1.3"
+APP_VERSION = "1.4"
+# 相对强弱因子使用的基准；与 /api/rs 的默认基准保持一致。
+BENCHMARK_SYMBOL = "000300"
 # 供前端和 /api/health 自检：旧进程没有这些路由时会以 JSON 404 明确报错，
 # 而不是退回静态文件服务返回 HTML。
 API_ROUTES = ("/api/health", "/api/analyze", "/api/search", "/api/rs", "/api/market", "/api/batch")
@@ -40,10 +42,15 @@ def json_bytes(payload: Any) -> bytes:
 def analyze_symbol(symbol: str, limit: int = 320) -> dict[str, Any]:
     history = DATA.history(symbol, limit)
     try:
+        # 基准只用于相对强弱因子；取不到时该因子记 0 分，不影响主分析。
+        benchmark = DATA.history(BENCHMARK_SYMBOL, max(limit, 260), index=True)
+    except MarketDataError:
+        benchmark = None
+    try:
         quote = DATA.quote(symbol)
     except MarketDataError:
         quote = None
-    return analyze(history, quote)
+    return analyze(history, quote, benchmark=benchmark)
 
 
 def batch_item(symbol: str) -> dict[str, Any]:
@@ -187,7 +194,7 @@ class Handler(BaseHTTPRequestHandler):
                         "status": "ok",
                         "version": APP_VERSION,
                         "routes": list(API_ROUTES),
-                        "features": ["search", "relative_strength", "batch", "candlestick", "score_factors"],
+                        "features": ["search", "relative_strength", "rs_factor", "batch", "candlestick", "score_factors"],
                     },
                 )
                 return

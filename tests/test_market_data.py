@@ -133,5 +133,27 @@ class QuotePrecisionTests(unittest.TestCase):
         self.assertEqual(quote["previous_close"], 99.0)
 
 
+class ConstituentTests(unittest.TestCase):
+    def test_constituents_filter_and_dedupe(self):
+        client = MarketDataClient()
+        client._get_json = lambda *_args, **_kwargs: {
+            "data": {
+                "total": 4,
+                "diff": [
+                    {"f12": "600519", "f14": "贵州茅台", "f20": 100},
+                    {"f12": "00700", "f14": "腾讯控股", "f20": 200},
+                    {"f12": "510300", "f14": "沪深300ETF", "f20": 300},
+                    {"f12": "600519", "f14": "贵州茅台", "f20": 100},
+                ],
+            }
+        }
+        items = client.constituents("hs300", 5)
+        self.assertEqual([item["symbol"] for item in items], ["600519", "510300"])
+
+    def test_unknown_board_is_rejected(self):
+        with self.assertRaises(ValueError):
+            MarketDataClient().constituents("zz500", 5)
+
+
 if __name__ == "__main__":
     unittest.main()

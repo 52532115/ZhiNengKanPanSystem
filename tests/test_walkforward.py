@@ -4,10 +4,12 @@ import unittest
 from analyzer import analyze
 from walkforward import (
     BUCKETS,
+    DEFAULT_SYMBOLS,
     bucket_key,
     build_report,
     excess_summary,
     factor_table,
+    load_universe,
     quantile_groups,
     consistency_check,
     per_symbol_stats,
@@ -71,6 +73,19 @@ class NoLookaheadTests(unittest.TestCase):
         self.assertAlmostEqual(sample["forward"]["20"]["return"], expected, places=6)
         self.assertLessEqual(sample["forward"]["20"]["mdd"], 0)
 
+    def test_relative_strength_scores_ignore_future_benchmark_rows(self):
+        history = make_history(300)
+        benchmark = make_history(300, drift=0.1, symbol="000300", asset_type="index")
+        full = walk_forward(history, benchmark=benchmark, stride=1)
+        truncated = make_history(300)
+        truncated["rows"] = truncated["rows"][:250]
+        partial = walk_forward(truncated, benchmark=benchmark, stride=1)
+        full_by_date = {sample["date"]: sample["score"] for sample in full}
+        overlap = [sample for sample in partial if sample["date"] in full_by_date]
+        self.assertGreater(len(overlap), 50)
+        for sample in overlap:
+            self.assertEqual(sample["score"], full_by_date[sample["date"]])
+
 
 class ShadowScoreTests(unittest.TestCase):
     def test_shadow_breakdown_matches_analyze(self):
@@ -81,7 +96,18 @@ class ShadowScoreTests(unittest.TestCase):
                 self.assertEqual(score, analyze(history)["score"], f"drift={drift} count={count}")
                 self.assertEqual(
                     set(parts),
-                    {"trend", "align", "long", "macd", "rsi", "ret20", "volume", "volatility", "drawdown"},
+                    {
+                        "trend",
+                        "align",
+                        "long",
+                        "rs",
+                        "macd",
+                        "rsi",
+                        "ret20",
+                        "volume",
+                        "volatility",
+                        "drawdown",
+                    },
                 )
 
     def test_breakdown_sums_to_raw_score(self):
@@ -237,6 +263,11 @@ class ConsistencyTests(unittest.TestCase):
         self.assertEqual([row["symbol"] for row in rows], ["600001", "600002"])
         self.assertEqual(sum(row["n"] for row in rows), len(samples))
         self.assertGreater(rows[0]["score_mean"], rows[1]["score_mean"])
+
+
+class UniverseTests(unittest.TestCase):
+    def test_default_universe(self):
+        self.assertEqual(load_universe("default", 60), list(DEFAULT_SYMBOLS))
 
 
 class ExcessReturnTests(unittest.TestCase):

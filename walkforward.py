@@ -117,6 +117,49 @@ def load_benchmark(
         return None
 
 
+UNIVERSES = ("default", "hs300")
+
+
+def load_universe(
+    name: str = "default",
+    limit: int = 60,
+    *,
+    refresh: bool = False,
+    offline: bool = False,
+) -> list[str]:
+    """把股票池解析成代码列表。
+
+    default 用仓库内置的 8 只标的；hs300 从沪深300 成分股按市值排序后
+    等距抽样，既覆盖大盘龙头，也包含中盘样本。抽样结果落盘，离线可复现。
+    """
+    if name == "default":
+        return list(DEFAULT_SYMBOLS)
+    if name not in UNIVERSES:
+        raise ValueError(f"不支持的股票池：{name}")
+    limit = max(1, min(limit, 300))
+    path = CACHE_DIR / f"universe_{name}_{limit}.json"
+    if path.is_file() and not refresh:
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        symbols = [str(item.get("symbol")) for item in payload if item.get("symbol")]
+        if symbols:
+            return symbols
+    if offline:
+        raise MarketDataError(f"股票池 {name} 没有本地缓存（{path}），请先联网运行一次")
+    items = MarketDataClient().constituents(name, 300)
+    if len(items) > limit:
+        if limit == 1:
+            items = items[:1]
+        else:
+            step = (len(items) - 1) / (limit - 1)
+            items = [items[round(index * step)] for index in range(limit)]
+    payload = [{"symbol": item["symbol"], "name": item["name"]} for item in items]
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    return [item["symbol"] for item in payload]
+
+
 def load_all(
     symbols: Iterable[str],
     days: int,
@@ -215,7 +258,8 @@ def walk_forward(
     samples: list[dict[str, Any]] = []
     for index in range(warmup - 1, len(rows) - span):
         prefix = {**meta, "rows": rows[: index + 1]}
-        result = analyze(prefix, weights=weights)
+        # 基准传入完整序列也不会泄露：相对强弱只按 prefix 里的日期取交集。
+        result = analyze(prefix, weights=weights, benchmark=benchmark)
         parts = {factor["key"]: factor["delta"] for factor in result["factors"]}
         if (index - (warmup - 1)) % stride:
             continue
@@ -507,6 +551,8 @@ def factor_table(
     profile = weights or DEFAULT_WEIGHTS
     rows: list[dict[str, Any]] = []
     for key, label in FACTOR_LABELS.items():
+        if key not in profile:
+            continue
         weight = weight_text(profile[key])
         positive: list[float] = []
         negative: list[float] = []
@@ -678,6 +724,7 @@ def build_report(
     benchmark: dict[str, Any] | None = None,
     weights: dict[str, tuple[int, ...]] | None = None,
     profile: str = DEFAULT_PROFILE,
+    universe: str = "default",
 ) -> dict[str, Any]:
     dates = sorted({sample["date"] for sample in samples})
     summary = summarize(samples, HORIZONS)
@@ -699,6 +746,7 @@ def build_report(
             "horizons": list(HORIZONS),
             "score_base": BASE_SCORE,
             "weights": profile,
+            "universe": universe,
             "benchmark": benchmark["symbol"] if benchmark else None,
         },
         "coverage": {
@@ -1179,7 +1227,7 @@ def write_reports(report: dict[str, Any], outdir: Path = REPORT_DIR) -> dict[str
 
 
 def run(
-    symbols: Iterable[str] = DEFAULT_SYMBOLS,
+    symbols: Iterable[str] | None = None,
     *,
     days: int = 600,
     stride: int = 1,
@@ -1187,10 +1235,14 @@ def run(
     offline: bool = False,
     benchmark_symbol: str = "000300",
     profile: str = DEFAULT_PROFILE,
+    universe: str = "default",
+    max_symbols: int = 60,
 ) -> dict[str, Any]:
     if profile not in WEIGHT_PROFILES:
         raise ValueError(f"未知权重档案：{profile}（可选 {', '.join(WEIGHT_PROFILES)}）")
     weights = WEIGHT_PROFILES[profile]
+    if symbols is None:
+        symbols = load_universe(universe, max_symbols, refresh=refresh, offline=offline)
     histories, failures = load_all(symbols, days, refresh=refresh, offline=offline)
     if not histories:
         raise MarketDataError("没有任何标的可用，请检查网络或先联网跑一次生成缓存")
@@ -1215,27 +1267,34 @@ def run(
         benchmark=benchmark,
         weights=weights,
         profile=profile,
+        universe=universe,
     )
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="评分有效性 walk-forward 验证（离线）")
-    parser.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS), help="逗号分隔的 6 位代码")
+    parser.add_argument("--symbols", default=None, help="逗号分隔的 6 位代码；省略时按 --universe 取股票池")
+    parser.add_argument("--universe", default="default", choices=UNIVERSES, help="股票池：default（内置 8 只）或 hs300（沪深300 等距抽样）")
+    parser.add_argument("--max-symbols", type=int, default=60, help="股票池抽样数量，默认 60")
     parser.add_argument("--days", type=int, default=600, help="每只标的取多少根日线（80–600）")
     parser.add_argument("--stride", type=int, default=1, help="评估步长，>1 可降低重叠样本")
-    parser.add_argument("--refresh", action="store_true", help="忽略缓存重新拉取行情")
+    parser.add_argument("--refresh", action="store_true", help="忽略缓存重新拉取行情与成分股")
     parser.add_argument("--offline", action="store_true", help="只用本地缓存，不访问网络")
-    parser.add_argument("--benchmark", default="000300", help="超额收益基准代码，默认沪深300")
+    parser.add_argument("--benchmark", default="000300", help="超额收益与相对强弱基准代码，默认沪深300")
     parser.add_argument(
         "--weights",
         default=DEFAULT_PROFILE,
         choices=sorted(WEIGHT_PROFILES),
-        help="权重档案：v1 为初始手调版本，v2 为按超额 edge 重估版本",
+        help="权重档案：v1 初始版、v2 按 edge 重估、v3 为 v2 加相对强弱因子",
     )
     parser.add_argument("--outdir", default=str(REPORT_DIR), help="报告输出目录")
     args = parser.parse_args(argv)
 
-    symbols = [item.strip() for item in args.symbols.split(",") if item.strip()]
+    symbols = None
+    universe = args.universe
+    if args.symbols:
+        symbols = [item.strip() for item in args.symbols.split(",") if item.strip()]
+        universe = "custom"
     try:
         report = run(
             symbols,
@@ -1245,6 +1304,8 @@ def main(argv: list[str] | None = None) -> int:
             offline=args.offline,
             benchmark_symbol=args.benchmark,
             profile=args.weights,
+            universe=universe,
+            max_symbols=max(1, args.max_symbols),
         )
     except MarketDataError as exc:
         print(f"验证失败：{exc}", file=sys.stderr)
@@ -1256,7 +1317,7 @@ def main(argv: list[str] | None = None) -> int:
         f"评估点 {coverage['samples']} 个，{coverage['symbols']} 只标的，"
         f"{coverage['start_date']} → {coverage['end_date']}"
     )
-    print(f"  权重档案：{report['params']['weights']}")
+    print(f"  权重档案：{report['params']['weights']}　股票池：{report['params']['universe']}")
     for horizon in ("5", "20", "60"):
         ic = report["ic"][horizon]
         print(f"  未来 {horizon} 日 IC = {ic['ic']}（t={ic['t']}）")

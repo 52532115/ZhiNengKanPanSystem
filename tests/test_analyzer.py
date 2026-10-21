@@ -86,6 +86,28 @@ class IndicatorTests(unittest.TestCase):
         self.assertEqual(score_v1, max(0, min(100, 50 + sum(f["delta"] for f in factors_v1))))
         self.assertEqual(weight_text(WEIGHTS_V2["rsi"]), "+3 / −3 / −2")
         self.assertEqual(factors_v2[0]["weight"], weight_text(WEIGHTS_V2["trend"]))
+        self.assertEqual(len(factors_v1), 9)
+        self.assertEqual(len(factors_v2), 9)
+
+    def test_relative_strength_factor(self):
+        strong = make_history(1.5)
+        bench = make_history(-0.5, asset_type="index", symbol="000300")
+
+        _, strong_factors = score_factors(strong, benchmark=bench)
+        rs = next(factor for factor in strong_factors if factor["key"] == "rs")
+        self.assertEqual(rs["delta"], 6)
+        self.assertIn("跑赢", rs["reason"])
+
+        weak = make_history(-0.5)
+        _, weak_factors = score_factors(weak, benchmark=make_history(1.5, asset_type="index", symbol="000300"))
+        rs_weak = next(factor for factor in weak_factors if factor["key"] == "rs")
+        self.assertEqual(rs_weak["delta"], -6)
+        self.assertIn("跑输", rs_weak["reason"])
+
+        _, no_bench = score_factors(strong)
+        rs_missing = next(factor for factor in no_bench if factor["key"] == "rs")
+        self.assertEqual(rs_missing["delta"], 0)
+        self.assertIsNone(rs_missing["reason"])
 
 
 if __name__ == "__main__":

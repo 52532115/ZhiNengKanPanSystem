@@ -89,6 +89,8 @@ class MarketDataClient:
     FALLBACK_KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
     SEARCH_URL = "https://searchapi.eastmoney.com/api/suggest/get"
     SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"
+    CONSTITUENT_URL = "https://push2.eastmoney.com/api/qt/clist/get"
+    CONSTITUENT_BOARDS = {"hs300": ("BK0500", "沪深300")}
     # 只接受 A 股与场内基金；指数/港股/美股一律过滤，避免与个股代码冲突。
     SEARCH_CLASSIFY = {"AStock": "stock", "Fund": "fund"}
 
@@ -350,3 +352,62 @@ class MarketDataClient:
             return items
 
         return self._cached(f"search:{query}:{limit}", 600, load)
+
+    def constituents(self, board: str = "hs300", limit: int = 300) -> list[dict[str, Any]]:
+        """按市值降序取指数成分股，供 walk-forward 扩样本使用。
+
+        上游 clist 接口单页最多 100 条，这里自动翻页并缓存一小时。
+        """
+        if board not in self.CONSTITUENT_BOARDS:
+            raise ValueError(f"不支持的成分股池：{board}")
+        board_id, board_name = self.CONSTITUENT_BOARDS[board]
+        limit = max(1, min(limit, 500))
+
+        def load() -> list[dict[str, Any]]:
+            items: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            page = 1
+            while len(items) < limit:
+                payload = self._get_json(
+                    self.CONSTITUENT_URL,
+                    {
+                        "pn": str(page),
+                        "pz": "100",
+                        "po": "1",
+                        "np": "1",
+                        "fltt": "2",
+                        "invt": "2",
+                        "fid": "f20",
+                        "fs": f"b:{board_id}",
+                        "fields": "f12,f14,f20",
+                    },
+                )
+                data = payload.get("data") or {}
+                rows = data.get("diff") or []
+                if not rows:
+                    break
+                for row in rows:
+                    code = str(row.get("f12") or "").strip()
+                    if not (len(code) == 6 and code.isdigit()) or code[0] not in "01345689":
+                        continue
+                    if code in seen:
+                        continue
+                    seen.add(code)
+                    items.append(
+                        {
+                            "symbol": code,
+                            "name": clean_name(row.get("f14"), code),
+                            "market_cap": row.get("f20"),
+                        }
+                    )
+                    if len(items) >= limit:
+                        break
+                total = int(data.get("total") or 0)
+                if len(rows) < 100 or page * 100 >= total:
+                    break
+                page += 1
+            if not items:
+                raise MarketDataError(f"未取得{board_name}成分股列表")
+            return items
+
+        return self._cached(f"constituents:{board}:{limit}", 3600, load)
