@@ -22,13 +22,16 @@
     <section class="hero">
       <div class="eyebrow">A-SHARE RESEARCH DESK</div>
       <h1>读懂趋势，<em>敬畏风险。</em></h1>
-      <p>用可解释的量价信号审视每一次决策。输入沪深京 A 股或场内 ETF 代码，获得趋势、动量与风险的交叉分析。</p>
-      <form class="search" id="searchForm">
-        <label class="sr-only" for="symbolInput">股票或 ETF 代码</label>
-        <span class="search-icon">⌕</span>
-        <input id="symbolInput" inputmode="numeric" maxlength="8" value="600519" placeholder="股票或 ETF 代码，如 600519 / 510300" autocomplete="off">
-        <button type="submit">开始分析 <span>→</span></button>
-      </form>
+      <p>用可解释的量价信号审视每一次决策。输入沪深京 A 股或场内 ETF 的代码、名称或拼音缩写，获得趋势、动量、相对强弱与风险的交叉分析。</p>
+      <div class="search-wrap">
+        <form class="search" id="searchForm">
+          <label class="sr-only" for="symbolInput">股票或 ETF 代码、名称、拼音</label>
+          <span class="search-icon">⌕</span>
+          <input id="symbolInput" maxlength="16" value="600519" placeholder="代码 / 名称 / 拼音，如 600519、茅台、gzmt" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestPanel">
+          <button type="submit">开始分析 <span>→</span></button>
+        </form>
+        <div class="suggest-panel hidden" id="suggestPanel" role="listbox" aria-label="搜索联想"></div>
+      </div>
       <div class="quick-picks" aria-label="常用股票和 ETF">
         <span>热门 A 股</span>
         <button data-symbol="600519">贵州茅台</button>
@@ -78,11 +81,18 @@
       <div class="detail-grid">
         <article class="chart-card panel">
           <div class="panel-head">
-            <div><div class="panel-label">量价趋势</div><h3>近 180 个交易日</h3></div>
+            <div><div class="panel-label">量价趋势</div><h3>K 线 · 可拖动框选区间</h3></div>
             <div class="legend">
-              <span class="price-line">收盘</span><span class="ma20-line">MA20</span><span class="ma60-line">MA60</span>
-              <span class="volume-bar">成交量</span><span class="vol5-line">VOL5</span><span class="vol10-line">VOL10</span>
+              <span class="candle-up">涨</span><span class="candle-down">跌</span>
+              <span class="ma20-line">MA20</span><span class="ma60-line">MA60</span>
             </div>
+          </div>
+          <div class="chart-tabs" id="chartTabs" role="tablist" aria-label="副图指标">
+            <button type="button" class="active" data-pane="volume">成交量</button>
+            <button type="button" data-pane="macd">MACD</button>
+            <button type="button" data-pane="rsi">RSI</button>
+            <span class="chart-hint" id="chartHint">在图上拖动可放大区间，双击还原</span>
+            <button type="button" class="chart-reset hidden" id="chartReset">重置区间</button>
           </div>
           <div class="chart-shell"><canvas id="priceChart"></canvas><div class="chart-tooltip hidden" id="chartTooltip"></div></div>
         </article>
@@ -94,6 +104,22 @@
         </article>
       </div>
 
+      <article class="rs-card panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-label">相对强弱</div>
+            <h3>与 <span id="rsBenchmark">沪深300</span> 归一化对比</h3>
+          </div>
+          <div class="rs-head-right">
+            <div class="rs-legend"><span class="rs-stock">个股</span><span class="rs-bench">基准</span><span class="rs-line">RS 比率</span></div>
+            <div class="rs-verdict" id="rsVerdict">—</div>
+          </div>
+        </div>
+        <div class="rs-stats" id="rsStats"></div>
+        <div class="rs-shell"><canvas id="rsChart"></canvas></div>
+        <p class="rs-note" id="rsNote"></p>
+      </article>
+
       <article class="metrics-card panel">
         <div class="panel-head">
           <div><div class="panel-label">核心指标</div><h3>收益与风险画像</h3></div>
@@ -103,8 +129,14 @@
       </article>
 
       <section class="watchlist-section">
-        <div class="section-head"><div><span>MY WATCHLIST</span><h2>我的自选</h2></div><p>保存在当前浏览器中</p></div>
-        <div class="watchlist" id="watchlist"></div>
+        <div class="section-head">
+          <div><span>MY WATCHLIST</span><h2>我的自选</h2></div>
+          <div class="watch-tools">
+            <p id="watchlistMeta">评分由服务端批量计算</p>
+            <button type="button" class="watch-refresh" id="watchRefresh">刷新评分</button>
+          </div>
+        </div>
+        <div id="watchlistBody"><div class="watchlist" id="watchlist"></div></div>
       </section>
     </section>
 

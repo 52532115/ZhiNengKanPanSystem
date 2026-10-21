@@ -1,0 +1,763 @@
+{
+  "generated_at": "2026-10-20 17:15",
+  "params": {
+    "symbols": [
+      "600519",
+      "300750",
+      "601318",
+      "000858",
+      "510300",
+      "588000",
+      "159915",
+      "518880"
+    ],
+    "days": 600,
+    "stride": 5,
+    "warmup": 130,
+    "horizons": [
+      5,
+      20,
+      60
+    ],
+    "score_base": 50
+  },
+  "coverage": {
+    "symbols": 8,
+    "samples": 664,
+    "trading_days": 83,
+    "start_date": "2024-11-07",
+    "end_date": "2026-07-17",
+    "failures": []
+  },
+  "buckets": [
+    {
+      "key": "lt30",
+      "range": "0–29",
+      "label": "高风险",
+      "tone": "negative",
+      "n": 112,
+      "share": 16.9,
+      "score_mean": 19.9,
+      "horizons": {
+        "5": {
+          "n": 112,
+          "independent_windows": 22,
+          "mean": 0.05,
+          "median": 0.03,
+          "p25": -1.64,
+          "p75": 2.19,
+          "worst": -14.17,
+          "best": 10.41,
+          "win_rate": 50.9,
+          "mdd_mean": -2.49,
+          "mdd_worst": -15.78
+        },
+        "20": {
+          "n": 112,
+          "independent_windows": 6,
+          "mean": 1.49,
+          "median": 1.31,
+          "p25": -4.27,
+          "p75": 6.16,
+          "worst": -19.17,
+          "best": 33.61,
+          "win_rate": 55.4,
+          "mdd_mean": -5.96,
+          "mdd_worst": -19.17
+        },
+        "60": {
+          "n": 112,
+          "independent_windows": 2,
+          "mean": 3.04,
+          "median": 2.19,
+          "p25": -6.94,
+          "p75": 8.94,
+          "worst": -28.78,
+          "best": 58.76,
+          "win_rate": 56.2,
+          "mdd_mean": -12.51,
+          "mdd_worst": -33.87
+        }
+      }
+    },
+    {
+      "key": "30_44",
+      "range": "30–44",
+      "label": "谨慎",
+      "tone": "negative",
+      "n": 82,
+      "share": 12.3,
+      "score_mean": 36.2,
+      "horizons": {
+        "5": {
+          "n": 82,
+          "independent_windows": 16,
+          "mean": 0.22,
+          "median": 0.51,
+          "p25": -1.7,
+          "p75": 2.22,
+          "worst": -12.6,
+          "best": 12.19,
+          "win_rate": 56.1,
+          "mdd_mean": -2.3,
+          "mdd_worst": -14.0
+        },
+        "20": {
+          "n": 82,
+          "independent_windows": 4,
+          "mean": 0.68,
+          "median": 0.64,
+          "p25": -5.13,
+          "p75": 5.33,
+          "worst": -13.16,
+          "best": 17.39,
+          "win_rate": 52.4,
+          "mdd_mean": -5.98,
+          "mdd_worst": -18.85
+        },
+        "60": {
+          "n": 82,
+          "independent_windows": 1,
+          "mean": 1.17,
+          "median": -0.64,
+          "p25": -7.26,
+          "p75": 4.85,
+          "worst": -22.25,
+          "best": 50.41,
+          "win_rate": 47.6,
+          "mdd_mean": -12.43,
+          "mdd_worst": -30.31
+        }
+      }
+    },
+    {
+      "key": "45_59",
+      "range": "45–59",
+      "label": "中性观察",
+      "tone": "neutral",
+      "n": 91,
+      "share": 13.7,
+      "score_mean": 51.7,
+      "horizons": {
+        "5": {
+          "n": 91,
+          "independent_windows": 18,
+          "mean": 0.4,
+          "median": 0.65,
+          "p25": -2.1,
+          "p75": 2.75,
+          "worst": -10.33,
+          "best": 14.86,
+          "win_rate": 57.1,
+          "mdd_mean": -2.51,
+          "mdd_worst": -10.45
+        },
+        "20": {
+          "n": 91,
+          "independent_windows": 5,
+          "mean": -0.05,
+          "median": 0.24,
+          "p25": -4.43,
+          "p75": 3.02,
+          "worst": -16.57,
+          "best": 25.8,
+          "win_rate": 52.7,
+          "mdd_mean": -6.9,
+          "mdd_worst": -21.47
+        },
+        "60": {
+          "n": 91,
+          "independent_windows": 2,
+          "mean": 4.18,
+          "median": 2.28,
+          "p25": -4.86,
+          "p75": 10.7,
+          "worst": -22.76,
+          "best": 52.0,
+          "win_rate": 57.1,
+          "mdd_mean": -11.02,
+          "mdd_worst": -30.2
+        }
+      }
+    },
+    {
+      "key": "60_74",
+      "range": "60–74",
+      "label": "谨慎偏多",
+      "tone": "positive",
+      "n": 117,
+      "share": 17.6,
+      "score_mean": 66.4,
+      "horizons": {
+        "5": {
+          "n": 117,
+          "independent_windows": 23,
+          "mean": 0.02,
+          "median": 0.03,
+          "p25": -1.99,
+          "p75": 1.87,
+          "worst": -18.2,
+          "best": 11.19,
+          "win_rate": 50.4,
+          "mdd_mean": -2.61,
+          "mdd_worst": -18.2
+        },
+        "20": {
+          "n": 117,
+          "independent_windows": 6,
+          "mean": 0.47,
+          "median": -0.24,
+          "p25": -3.38,
+          "p75": 4.24,
+          "worst": -16.7,
+          "best": 25.35,
+          "win_rate": 47.9,
+          "mdd_mean": -6.64,
+          "mdd_worst": -25.94
+        },
+        "60": {
+          "n": 117,
+          "independent_windows": 2,
+          "mean": 1.92,
+          "median": 0.46,
+          "p25": -6.08,
+          "p75": 6.48,
+          "worst": -31.82,
+          "best": 52.56,
+          "win_rate": 51.3,
+          "mdd_mean": -12.27,
+          "mdd_worst": -31.82
+        }
+      }
+    },
+    {
+      "key": "ge75",
+      "range": "75–100",
+      "label": "偏积极",
+      "tone": "positive",
+      "n": 262,
+      "share": 39.5,
+      "score_mean": 86.4,
+      "horizons": {
+        "5": {
+          "n": 262,
+          "independent_windows": 52,
+          "mean": 0.32,
+          "median": 0.21,
+          "p25": -1.9,
+          "p75": 2.34,
+          "worst": -11.6,
+          "best": 15.11,
+          "win_rate": 51.9,
+          "mdd_mean": -2.58,
+          "mdd_worst": -16.77
+        },
+        "20": {
+          "n": 262,
+          "independent_windows": 13,
+          "mean": 1.71,
+          "median": 0.85,
+          "p25": -3.73,
+          "p75": 6.36,
+          "worst": -18.88,
+          "best": 31.58,
+          "win_rate": 55.0,
+          "mdd_mean": -6.63,
+          "mdd_worst": -28.31
+        },
+        "60": {
+          "n": 262,
+          "independent_windows": 4,
+          "mean": 4.28,
+          "median": 1.71,
+          "p25": -5.26,
+          "p75": 13.27,
+          "worst": -21.84,
+          "best": 54.65,
+          "win_rate": 55.3,
+          "mdd_mean": -12.57,
+          "mdd_worst": -31.19
+        }
+      }
+    }
+  ],
+  "ic": {
+    "5": {
+      "ic": 0.027,
+      "n": 664,
+      "n_effective": 133,
+      "t": 0.31,
+      "significant": false
+    },
+    "20": {
+      "ic": 0.036,
+      "n": 664,
+      "n_effective": 33,
+      "t": 0.2,
+      "significant": false
+    },
+    "60": {
+      "ic": 0.058,
+      "n": 664,
+      "n_effective": 11,
+      "t": 0.17,
+      "significant": false
+    }
+  },
+  "spread": {
+    "5": {
+      "top_minus_bottom": 0.27,
+      "monotone_pairs": "3/4"
+    },
+    "20": {
+      "top_minus_bottom": 0.22,
+      "monotone_pairs": "2/4"
+    },
+    "60": {
+      "top_minus_bottom": 1.24,
+      "monotone_pairs": "2/4"
+    }
+  },
+  "quantiles": [
+    {
+      "group": "Q1",
+      "score_low": 0,
+      "score_high": 33,
+      "n": 133,
+      "horizons": {
+        "5": {
+          "mean": 0.1,
+          "win_rate": 51.9
+        },
+        "20": {
+          "mean": 1.47,
+          "win_rate": 54.9
+        },
+        "60": {
+          "mean": 3.06,
+          "win_rate": 54.9
+        }
+      }
+    },
+    {
+      "group": "Q2",
+      "score_low": 33,
+      "score_high": 54,
+      "n": 133,
+      "horizons": {
+        "5": {
+          "mean": 0.2,
+          "win_rate": 56.4
+        },
+        "20": {
+          "mean": 0.02,
+          "win_rate": 51.1
+        },
+        "60": {
+          "mean": 2.85,
+          "win_rate": 53.4
+        }
+      }
+    },
+    {
+      "group": "Q3",
+      "score_low": 54,
+      "score_high": 74,
+      "n": 132,
+      "horizons": {
+        "5": {
+          "mean": 0.17,
+          "win_rate": 51.5
+        },
+        "20": {
+          "mean": 0.7,
+          "win_rate": 50.8
+        },
+        "60": {
+          "mean": 2.18,
+          "win_rate": 52.3
+        }
+      }
+    },
+    {
+      "group": "Q4",
+      "score_low": 74,
+      "score_high": 85,
+      "n": 133,
+      "horizons": {
+        "5": {
+          "mean": -0.16,
+          "win_rate": 50.4
+        },
+        "20": {
+          "mean": 1.06,
+          "win_rate": 51.9
+        },
+        "60": {
+          "mean": 2.36,
+          "win_rate": 53.4
+        }
+      }
+    },
+    {
+      "group": "Q5",
+      "score_low": 85,
+      "score_high": 100,
+      "n": 133,
+      "horizons": {
+        "5": {
+          "mean": 0.79,
+          "win_rate": 53.4
+        },
+        "20": {
+          "mean": 2.19,
+          "win_rate": 57.1
+        },
+        "60": {
+          "mean": 5.84,
+          "win_rate": 56.4
+        }
+      }
+    }
+  ],
+  "per_symbol_detail": [
+    {
+      "symbol": "600519",
+      "name": "贵州茅台",
+      "asset_type": "stock",
+      "n": 83,
+      "score_mean": 54.4,
+      "ic20": -0.309,
+      "ic60": -0.466,
+      "spread20": -3.91,
+      "spread60": -8.43,
+      "win_top20": 17.4,
+      "n_top": 23,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "300750",
+      "name": "宁德时代",
+      "asset_type": "stock",
+      "n": 83,
+      "score_mean": 59.1,
+      "ic20": -0.094,
+      "ic60": 0.029,
+      "spread20": -3.89,
+      "spread60": 2.11,
+      "win_top20": 50.0,
+      "n_top": 30,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "601318",
+      "name": "中国平安",
+      "asset_type": "stock",
+      "n": 83,
+      "score_mean": 60.5,
+      "ic20": 0.1,
+      "ic60": 0.062,
+      "spread20": -0.89,
+      "spread60": -0.2,
+      "win_top20": 62.2,
+      "n_top": 37,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "000858",
+      "name": "五粮液",
+      "asset_type": "stock",
+      "n": 83,
+      "score_mean": 41.8,
+      "ic20": 0.02,
+      "ic60": -0.11,
+      "spread20": -2.93,
+      "spread60": -3.71,
+      "win_top20": 12.5,
+      "n_top": 8,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "510300",
+      "name": "沪深300ETF华泰柏瑞",
+      "asset_type": "etf",
+      "n": 83,
+      "score_mean": 70.8,
+      "ic20": -0.203,
+      "ic60": -0.059,
+      "spread20": -5.06,
+      "spread60": -5.86,
+      "win_top20": 59.6,
+      "n_top": 47,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "588000",
+      "name": "科创50ETF华夏",
+      "asset_type": "etf",
+      "n": 83,
+      "score_mean": 62.0,
+      "ic20": -0.133,
+      "ic60": -0.412,
+      "spread20": -4.22,
+      "spread60": -24.33,
+      "win_top20": 46.7,
+      "n_top": 30,
+      "verdict": "反向"
+    },
+    {
+      "symbol": "159915",
+      "name": "创业板ETF易方达",
+      "asset_type": "etf",
+      "n": 83,
+      "score_mean": 66.3,
+      "ic20": 0.065,
+      "ic60": 0.069,
+      "spread20": -5.56,
+      "spread60": -1.01,
+      "win_top20": 66.7,
+      "n_top": 39,
+      "verdict": "同向"
+    },
+    {
+      "symbol": "518880",
+      "name": "黄金ETF华安",
+      "asset_type": "etf",
+      "n": 83,
+      "score_mean": 70.6,
+      "ic20": 0.402,
+      "ic60": 0.293,
+      "spread20": 5.72,
+      "spread60": 5.71,
+      "win_top20": 68.8,
+      "n_top": 48,
+      "verdict": "同向"
+    }
+  ],
+  "consistency": {
+    "symbols": 8,
+    "positive_ic20": 4,
+    "positive_ic60": 4,
+    "divergent": false
+  },
+  "factors": [
+    {
+      "key": "volatility",
+      "label": "年化波动率",
+      "weight": "+4 / −8",
+      "n_positive": 385,
+      "n_negative": 32,
+      "n_neutral": 247,
+      "return_positive": 1.77,
+      "return_negative": -4.01,
+      "return_neutral": 0.69,
+      "edge": 5.77,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 57.9,
+      "hit_negative": 21.9,
+      "verdict": "方向有效"
+    },
+    {
+      "key": "drawdown",
+      "label": "近 120 日回撤",
+      "weight": "−6",
+      "n_positive": 0,
+      "n_negative": 66,
+      "n_neutral": 598,
+      "return_positive": null,
+      "return_negative": -0.98,
+      "return_neutral": 1.32,
+      "edge": 2.3,
+      "basis": "未触发 vs 扣分",
+      "hit_positive": null,
+      "hit_negative": 40.9,
+      "verdict": "方向有效"
+    },
+    {
+      "key": "rsi",
+      "label": "RSI 区间",
+      "weight": "+7 / −6 / −4",
+      "n_positive": 338,
+      "n_negative": 96,
+      "n_neutral": 230,
+      "return_positive": 0.73,
+      "return_negative": 2.87,
+      "return_neutral": 0.87,
+      "edge": -2.13,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 48.8,
+      "hit_negative": 66.7,
+      "verdict": "方向相反"
+    },
+    {
+      "key": "ret20",
+      "label": "近 20 日涨幅",
+      "weight": "+5 / −6 / −3",
+      "n_positive": 321,
+      "n_negative": 47,
+      "n_neutral": 296,
+      "return_positive": 1.68,
+      "return_negative": 2.68,
+      "return_neutral": 0.19,
+      "edge": -1.0,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 55.8,
+      "hit_negative": 66.0,
+      "verdict": "方向相反"
+    },
+    {
+      "key": "trend",
+      "label": "价格 vs MA20",
+      "weight": "+9 / −9",
+      "n_positive": 349,
+      "n_negative": 315,
+      "n_neutral": 0,
+      "return_positive": 1.49,
+      "return_negative": 0.64,
+      "return_neutral": null,
+      "edge": 0.86,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 54.4,
+      "hit_negative": 51.7,
+      "verdict": "弱有效"
+    },
+    {
+      "key": "macd",
+      "label": "MACD 柱与斜率",
+      "weight": "+8 / −7",
+      "n_positive": 255,
+      "n_negative": 353,
+      "n_neutral": 56,
+      "return_positive": 1.62,
+      "return_negative": 0.77,
+      "return_neutral": 0.65,
+      "edge": 0.85,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 59.2,
+      "hit_negative": 50.4,
+      "verdict": "弱有效"
+    },
+    {
+      "key": "align",
+      "label": "MA20 vs MA60",
+      "weight": "+9 / −7",
+      "n_positive": 391,
+      "n_negative": 273,
+      "n_neutral": 0,
+      "return_positive": 0.84,
+      "return_negative": 1.44,
+      "return_neutral": null,
+      "edge": -0.6,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 50.4,
+      "hit_negative": 57.1,
+      "verdict": "接近噪声"
+    },
+    {
+      "key": "volume",
+      "label": "量比 + 当日涨跌",
+      "weight": "+4 / −5",
+      "n_positive": 61,
+      "n_negative": 19,
+      "n_neutral": 584,
+      "return_positive": 1.31,
+      "return_negative": 0.64,
+      "return_neutral": 1.08,
+      "edge": 0.23,
+      "basis": "加分 vs 未触发",
+      "hit_positive": 60.7,
+      "hit_negative": 57.9,
+      "verdict": "弱有效"
+    },
+    {
+      "key": "long",
+      "label": "价格 vs MA120",
+      "weight": "+6 / −6",
+      "n_positive": 442,
+      "n_negative": 222,
+      "n_neutral": 0,
+      "return_positive": 1.03,
+      "return_negative": 1.21,
+      "return_neutral": null,
+      "edge": -0.18,
+      "basis": "加分 vs 扣分",
+      "hit_positive": 52.0,
+      "hit_negative": 55.4,
+      "verdict": "接近噪声"
+    }
+  ],
+  "per_symbol": [
+    {
+      "symbol": "600519",
+      "name": "贵州茅台",
+      "asset_type": "stock",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "300750",
+      "name": "宁德时代",
+      "asset_type": "stock",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "601318",
+      "name": "中国平安",
+      "asset_type": "stock",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "000858",
+      "name": "五粮液",
+      "asset_type": "stock",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "510300",
+      "name": "沪深300ETF华泰柏瑞",
+      "asset_type": "etf",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "588000",
+      "name": "科创50ETF华夏",
+      "asset_type": "etf",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "159915",
+      "name": "创业板ETF易方达",
+      "asset_type": "etf",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    },
+    {
+      "symbol": "518880",
+      "name": "黄金ETF华安",
+      "asset_type": "etf",
+      "rows": 601,
+      "first": "2024-04-25",
+      "last": "2026-10-20",
+      "samples": 83
+    }
+  ]
+}

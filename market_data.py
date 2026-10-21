@@ -27,6 +27,15 @@ INDEXES = {
     "399006": ("0.399006", "创业板指"),
 }
 
+# 相对强弱基准池。市场环境只遍历 INDEXES，因此向基准池追加品种不会改变
+# /api/market 的口径。
+BENCHMARKS = {
+    **INDEXES,
+    "000300": ("1.000300", "沪深300"),
+    "000905": ("1.000905", "中证500"),
+    "000852": ("1.000852", "中证1000"),
+}
+
 
 def normalize_symbol(raw: str) -> str:
     value = raw.strip().upper().replace("SH", "").replace("SZ", "").replace("BJ", "")
@@ -68,6 +77,10 @@ class MarketDataClient:
     KLINE_URL = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
     QUOTE_URL = "https://push2.eastmoney.com/api/qt/stock/get"
     FALLBACK_KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+    SEARCH_URL = "https://searchapi.eastmoney.com/api/suggest/get"
+    SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"
+    # 只接受 A 股与场内基金；指数/港股/美股一律过滤，避免与个股代码冲突。
+    SEARCH_CLASSIFY = {"AStock": "stock", "Fund": "fund"}
 
     def __init__(self, timeout: float = 8.0) -> None:
         self.timeout = timeout
@@ -111,8 +124,17 @@ class MarketDataClient:
             self._cache[key] = CacheItem(now + ttl, value)
         return value
 
-    def _fallback_history(self, symbol: str, limit: int, *, index: bool) -> dict[str, Any]:
-        prefix = "sh" if (index and symbol == "000001") or symbol.startswith(("5", "6", "9")) else "sz"
+    def _fallback_history(
+        self,
+        symbol: str,
+        limit: int,
+        *,
+        index: bool = False,
+        market: str | None = None,
+    ) -> dict[str, Any]:
+        if market is None:
+            market = "1" if (index and symbol == "000001") or symbol.startswith(("5", "6", "9")) else "0"
+        prefix = "sh" if market == "1" else "sz"
         key = f"{prefix}{symbol}"
         payload = self._get_json(
             self.FALLBACK_KLINE_URL,
@@ -162,9 +184,10 @@ class MarketDataClient:
     def history(self, symbol: str, limit: int = 300, *, index: bool = False) -> dict[str, Any]:
         symbol = normalize_symbol(symbol)
         limit = max(80, min(limit, 600))
-        if index and symbol not in INDEXES:
+        if index and symbol not in BENCHMARKS:
             raise ValueError("不支持的市场指数代码")
-        secid = INDEXES[symbol][0] if index else security_id(symbol)
+        secid = BENCHMARKS[symbol][0] if index else security_id(symbol)
+        market = secid.split(".", 1)[0]
         asset_type = "index" if index else instrument_type(symbol)
 
         def load() -> dict[str, Any]:
@@ -182,7 +205,7 @@ class MarketDataClient:
                     },
                 )
             except MarketDataError:
-                fallback = self._fallback_history(symbol, limit, index=index)
+                fallback = self._fallback_history(symbol, limit, index=index, market=market)
                 return {**fallback, "asset_type": asset_type}
             data = payload.get("data")
             if not data or not data.get("klines"):
@@ -259,3 +282,50 @@ class MarketDataClient:
             }
 
         return self._cached(f"quote:{symbol}", 20, load)
+
+    def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+        """Resolve a name / pinyin / partial code into tradeable symbols.
+
+        The upstream suggest endpoint is best-effort: when it is unreachable we
+        return an empty list so the search box degrades to "code only" silently
+        instead of blocking the whole page with an error banner.
+        """
+        query = (query or "").strip()[:24]
+        if not query:
+            return []
+        limit = max(1, min(limit, 12))
+
+        def load() -> list[dict[str, Any]]:
+            try:
+                payload = self._get_json(
+                    self.SEARCH_URL,
+                    {"input": query, "type": "14", "token": self.SEARCH_TOKEN, "count": "12"},
+                )
+            except MarketDataError:
+                return []
+            rows = (payload.get("QuotationCodeTable") or {}).get("Data") or []
+            items: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            for row in rows:
+                if row.get("Classify") not in self.SEARCH_CLASSIFY:
+                    continue
+                code = str(row.get("Code") or "").strip()
+                if not (len(code) == 6 and code.isdigit()) or code[0] not in "01345689":
+                    continue
+                if code in seen:
+                    continue
+                seen.add(code)
+                items.append(
+                    {
+                        "symbol": code,
+                        "name": clean_name(row.get("Name"), code),
+                        "asset_type": instrument_type(code),
+                        "market": "沪市" if security_id(code).startswith("1.") else "深市",
+                        "type_label": clean_name(row.get("SecurityTypeName"), ""),
+                    }
+                )
+                if len(items) >= limit:
+                    break
+            return items
+
+        return self._cached(f"search:{query}:{limit}", 600, load)

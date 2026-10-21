@@ -212,10 +212,16 @@ def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dic
             {
                 "date": dates[i],
                 "open": rows[i]["open"],
+                "high": rows[i]["high"],
+                "low": rows[i]["low"],
                 "close": closes[i],
                 "pct_change": rows[i]["pct_change"],
                 "ma20": _round(ma20[i], price_digits),
                 "ma60": _round(ma60[i], price_digits),
+                "dif": _round(dif[i], 4),
+                "dea": _round(dea[i], 4),
+                "macd": _round(histogram[i], 4),
+                "rsi14": _round(rsi14[i], 1),
                 "volume": volumes[i],
                 "volume_ma5": _round(volume_ma5_series[i], 0),
                 "volume_ma10": _round(volume_ma10_series[i], 0),
@@ -263,6 +269,122 @@ def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dic
             if is_fund
             else "基于日线趋势、MACD、RSI、量价、波动率与最大回撤的规则评分，不使用未来数据。"
         ),
+    }
+
+
+def relative_strength(
+    stock: dict[str, Any],
+    benchmark: dict[str, Any],
+    window: int = 120,
+) -> dict[str, Any]:
+    """Normalize a stock and a benchmark to 100 and derive an RS ratio curve.
+
+    RS = 个股归一化净值 / 基准归一化净值 × 100。基准之上说明跑赢，反之跑输；
+    当超额收益很小而同区间两者都上涨时，涨幅更可能来自普涨而非个股强势。
+    """
+    bench_close = {row["date"]: row["close"] for row in benchmark["rows"] if row["close"]}
+    pairs = [
+        (row["date"], row["close"], bench_close[row["date"]])
+        for row in stock["rows"]
+        if row["date"] in bench_close and row["close"]
+    ]
+    if len(pairs) < 25:
+        raise ValueError("个股与基准的重合交易日不足，无法计算相对强弱")
+
+    span = max(20, min(window, len(pairs) - 1))
+    pairs = pairs[-(span + 1) :]
+    stock_base, bench_base = pairs[0][1], pairs[0][2]
+
+    series: list[dict[str, Any]] = []
+    rs_values: list[float] = []
+    for date, stock_close, bench_close_value in pairs:
+        stock_norm = stock_close / stock_base * 100
+        bench_norm = bench_close_value / bench_base * 100
+        rs_value = stock_norm / bench_norm * 100
+        rs_values.append(rs_value)
+        series.append(
+            {
+                "date": date,
+                "stock": round(stock_norm, 2),
+                "benchmark": round(bench_norm, 2),
+                "rs": round(rs_value, 2),
+            }
+        )
+
+    stock_return = (pairs[-1][1] / stock_base - 1) * 100
+    bench_return = (pairs[-1][2] / bench_base - 1) * 100
+    excess = stock_return - bench_return
+    rs_last = rs_values[-1]
+    rs_ma20 = sma(rs_values, 20)[-1]
+    rs_change_20d = rs_last - rs_values[-min(21, len(rs_values))]
+
+    if excess >= 5 and (rs_ma20 is None or rs_last >= rs_ma20):
+        verdict, tone = "真强", "positive"
+        note = (
+            "个股涨幅明显跑赢基准，且 RS 曲线仍在上行，超额收益来自自身强度而非普涨。"
+            if stock_return >= 0
+            else "两者同处调整，但个股跌幅明显小于基准，相对强度来自抗跌能力而非跟涨。"
+        )
+    elif excess <= -5:
+        verdict, tone = "跑输基准", "negative"
+        note = (
+            "个股涨幅落后基准，即使绝对收益为正，也应优先审视其相对弱势的原因。"
+            if stock_return >= 0
+            else "个股跌幅大于基准，调整阶段的防御性不足，应优先控制风险。"
+        )
+    elif abs(excess) <= 2:
+        verdict, tone = "同步", "neutral"
+        note = (
+            "个股与基准涨幅几乎一致，当前上涨更可能由普涨带动，持续性需等 RS 曲线走强再确认。"
+            if stock_return >= 0
+            else "个股与基准同步回落，暂未看到独立的抗跌能力。"
+        )
+    elif excess > 0:
+        verdict, tone = "略强", "positive"
+        note = (
+            "个股小幅跑赢基准，强度尚不显著，可继续跟踪 RS 能否站上 20 日均值。"
+            if stock_return >= 0
+            else "个股跌幅略小于基准，暂视为弱市中的相对抗跌，尚不构成独立强势。"
+        )
+    else:
+        verdict, tone = "略弱", "negative"
+        note = (
+            "个股小幅跑输基准，属于普涨中的跟随者，不宜按强势股对待。"
+            if stock_return >= 0
+            else "个股跌幅略大于基准，弱市中缺少相对优势。"
+        )
+
+    if rs_ma20 is None:
+        rs_trend = "flat"
+    elif rs_last > rs_ma20:
+        rs_trend = "up"
+    elif rs_last < rs_ma20:
+        rs_trend = "down"
+    else:
+        rs_trend = "flat"
+
+    return {
+        "symbol": stock["symbol"],
+        "name": stock["name"],
+        "asset_type": stock.get("asset_type", "stock"),
+        "benchmark_symbol": benchmark["symbol"],
+        "benchmark_name": benchmark["name"],
+        "window": len(pairs) - 1,
+        "start_date": pairs[0][0],
+        "as_of": pairs[-1][0],
+        "stock_return": round(stock_return, 2),
+        "benchmark_return": round(bench_return, 2),
+        "excess_return": round(excess, 2),
+        "rs": round(rs_last, 2),
+        "rs_ma20": _round(rs_ma20, 2),
+        "rs_change_20d": round(rs_change_20d, 2),
+        "rs_trend": rs_trend,
+        "rs_high": round(max(rs_values), 2),
+        "rs_low": round(min(rs_values), 2),
+        "verdict": verdict,
+        "tone": tone,
+        "note": note,
+        "series": series,
     }
 
 

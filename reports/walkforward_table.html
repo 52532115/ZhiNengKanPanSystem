@@ -1,0 +1,102 @@
+<section class="wf" aria-labelledby="wfTitle">
+  <style>
+    .wf { margin: 0; padding: 0; color: var(--ink, #16221d); }
+    .wf h3 { margin: 0 0 6px; font-size: 17px; letter-spacing: .01em; }
+    .wf .wf-sub { margin: 0 0 14px; color: var(--muted, #6e7b74); font-size: 12.5px; line-height: 1.7; }
+    .wf .wf-scroll { overflow-x: auto; border: 1px solid var(--line, #d8ddd6); border-radius: 8px; background: var(--panel, rgba(255,255,252,.84)); }
+    .wf table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+    .wf caption { caption-side: top; text-align: left; padding: 10px 12px 6px; color: var(--muted, #6e7b74); font-size: 11.5px; white-space: normal; line-height: 1.6; }
+    .wf thead th { padding: 8px 10px; color: var(--muted, #6e7b74); font-weight: 600; font-size: 11px; letter-spacing: .04em; border-bottom: 1px solid var(--line, #d8ddd6); background: rgba(23,107,77,.04); }
+    .wf thead tr:first-child th { border-bottom: 1px solid var(--line, #d8ddd6); }
+    .wf tbody td { padding: 8px 10px; border-bottom: 1px solid rgba(216,221,214,.7); }
+    .wf tbody tr:last-child td { border-bottom: 0; }
+    .wf tbody tr:hover td { background: rgba(23,107,77,.045); }
+    .wf .num { text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums; }
+    .wf .wf-bucket { display: flex; flex-direction: column; gap: 1px; }
+    .wf .wf-bucket span { color: var(--muted, #6e7b74); font-size: 11px; }
+    .wf .wf-up { color: var(--red, #b34938); }
+    .wf .wf-down { color: var(--green, #176b4d); }
+    .wf .wf-mono { color: var(--muted, #6e7b74); }
+    .wf .wf-verdict { color: var(--ink, #16221d); }
+    .wf .wf-verdict span { display: block; margin-top: 1px; font-size: 10.5px; }
+    .wf .wf-code { display: block; margin-top: 1px; color: var(--muted, #6e7b74); font: 700 10px/1.4 ui-monospace, Menlo, monospace; letter-spacing: .04em; }
+    .wf .wf-sym td:first-child { white-space: normal; min-width: 132px; max-width: 190px; }
+    .wf .wf-warn { margin: 14px 0 0; padding: 9px 12px; border-left: 3px solid var(--amber, #aa7627); border-radius: 0 6px 6px 0; background: rgba(170,118,39,.09); color: #7a5418; font-size: 12px; line-height: 1.75; }
+    .wf .wf-notes { margin: 14px 0 0; padding-left: 18px; color: var(--muted, #6e7b74); font-size: 12px; line-height: 1.85; }
+    .wf .wf-note { margin: 12px 0 0; color: var(--muted, #6e7b74); font-size: 11.5px; line-height: 1.8; }
+    .wf .wf-factor { margin-top: 18px; }
+  </style>
+  <h3 id="wfTitle">评分有效性验证</h3>
+  <p class="wf-sub">每个交易日仅用截至当日的数据重新打分，再回看未来 5 / 20 / 60 日表现。
+    8 只标的 · 412 个交易日 · 3296 个评估点 ·
+    2024-11-07 → 2026-07-20</p>
+  <div class="wf-scroll">
+    <table>
+      <caption>分桶口径：0–29=高风险 / 30–44=谨慎 / 45–59=中性观察 / 60–74=谨慎偏多 / 75–100=偏积极</caption>
+      <thead>
+        <tr>
+          <th rowspan="2" scope="col">评分分桶</th>
+          <th rowspan="2" scope="col">样本</th>
+          <th colspan="3" scope="colgroup">未来 5 日</th>
+          <th colspan="3" scope="colgroup">未来 20 日</th>
+          <th colspan="3" scope="colgroup">未来 60 日</th>
+        </tr>
+        <tr>
+          <th scope="col">均值</th><th scope="col">胜率</th><th scope="col">回撤</th>
+          <th scope="col">均值</th><th scope="col">胜率</th><th scope="col">回撤</th>
+          <th scope="col">均值</th><th scope="col">胜率</th><th scope="col">回撤</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="wf-bucket"><strong>0–29</strong><span>高风险</span></td><td class="num">515</td><td class="num wf-up">+0.01%</td><td class="num">48.5%</td><td class="num wf-down">-2.52%</td><td class="num wf-up">+1.06%</td><td class="num">55.3%</td><td class="num wf-down">-5.92%</td><td class="num wf-up">+2.59%</td><td class="num">54.6%</td><td class="num wf-down">-12.32%</td></tr><tr><td class="wf-bucket"><strong>30–44</strong><span>谨慎</span></td><td class="num">425</td><td class="num wf-up">+0.29%</td><td class="num">55.3%</td><td class="num wf-down">-2.28%</td><td class="num wf-up">+1.01%</td><td class="num">54.8%</td><td class="num wf-down">-5.89%</td><td class="num wf-up">+3.08%</td><td class="num">54.1%</td><td class="num wf-down">-11.54%</td></tr><tr><td class="wf-bucket"><strong>45–59</strong><span>中性观察</span></td><td class="num">489</td><td class="num wf-up">+0.38%</td><td class="num">56.2%</td><td class="num wf-down">-2.52%</td><td class="num wf-down">-0.11%</td><td class="num">48.9%</td><td class="num wf-down">-6.89%</td><td class="num wf-up">+1.81%</td><td class="num">50.3%</td><td class="num wf-down">-12.17%</td></tr><tr><td class="wf-bucket"><strong>60–74</strong><span>谨慎偏多</span></td><td class="num">591</td><td class="num wf-down">-0.08%</td><td class="num">45.7%</td><td class="num wf-down">-2.63%</td><td class="num wf-up">+0.39%</td><td class="num">48.7%</td><td class="num wf-down">-6.61%</td><td class="num wf-up">+2.94%</td><td class="num">53.6%</td><td class="num wf-down">-12.32%</td></tr><tr><td class="wf-bucket"><strong>75–100</strong><span>偏积极</span></td><td class="num">1276</td><td class="num wf-up">+0.42%</td><td class="num">52.7%</td><td class="num wf-down">-2.56%</td><td class="num wf-up">+2.06%</td><td class="num">55.5%</td><td class="num wf-down">-6.58%</td><td class="num wf-up">+4.58%</td><td class="num">57.5%</td><td class="num wf-down">-12.45%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="wf-notes">
+    <li><b>未来 5 日：</b>IC +0.028（有效样本 ≈ 659，不显著），最高桶 − 最低桶 +0.41%，单调 3/4</li><li><b>未来 20 日：</b>IC +0.053（有效样本 ≈ 165，不显著），最高桶 − 最低桶 +1.00%，单调 2/4</li><li><b>未来 60 日：</b>IC +0.064（有效样本 ≈ 55，不显著），最高桶 − 最低桶 +1.99%，单调 3/4</li>
+    <li><b>五等分交叉验证：</b>Q1（最低分）至 Q5（最高分）的收益差为 未来 5 日 +0.62%，未来 20 日 +1.41%，未来 60 日 +3.37%</li>
+  </ul>
+  <p class="wf-warn">注意：合并样本的排序能力为正，但仅 3/8 只标的自身为正相关。这说明合并口径的优势主要来自品种间差异，不宜当作单只标的内的择时能力。</p>
+  <div class="wf-factor">
+    <h3>分标的复核</h3>
+    <p class="wf-sub">同一套评分放在不同品种上可能指向相反方向，这里逐只核对排序能力。</p>
+    <div class="wf-scroll">
+      <table class="wf-sym">
+        <thead>
+          <tr>
+            <th scope="col">标的</th><th scope="col">评分均值</th>
+            <th scope="col">IC（20 日）</th><th scope="col">IC（60 日）</th>
+            <th scope="col">首尾差（20 日）</th><th scope="col">首尾差（60 日）</th>
+            <th scope="col">最高桶 20 日胜率</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>贵州茅台<span class="wf-code">600519</span></td><td class="num">54.9</td><td class="num ">-0.33</td><td class="num ">-0.49</td><td class="num wf-down">-4.38%</td><td class="num wf-down">-8.92%</td><td class="num">17.9%<span class="wf-code">n=123</span></td></tr><tr><td>宁德时代<span class="wf-code">300750</span></td><td class="num">60.7</td><td class="num ">-0.08</td><td class="num ">+0.04</td><td class="num wf-down">-4.13%</td><td class="num wf-up">+0.84%</td><td class="num">50.0%<span class="wf-code">n=148</span></td></tr><tr><td>中国平安<span class="wf-code">601318</span></td><td class="num">59.5</td><td class="num ">+0.06</td><td class="num ">+0.08</td><td class="num wf-up">+0.17%</td><td class="num wf-up">+2.08%</td><td class="num">63.6%<span class="wf-code">n=154</span></td></tr><tr><td>五粮液<span class="wf-code">000858</span></td><td class="num">41.8</td><td class="num ">-0.00</td><td class="num ">-0.12</td><td class="num wf-down">-1.22%</td><td class="num wf-down">-3.02%</td><td class="num">12.5%<span class="wf-code">n=32</span></td></tr><tr><td>沪深300ETF华泰柏瑞<span class="wf-code">510300</span></td><td class="num">71.3</td><td class="num ">-0.18</td><td class="num ">-0.12</td><td class="num wf-down">-5.16%</td><td class="num wf-down">-5.80%</td><td class="num">59.5%<span class="wf-code">n=232</span></td></tr><tr><td>科创50ETF华夏<span class="wf-code">588000</span></td><td class="num">63.0</td><td class="num ">-0.06</td><td class="num ">-0.37</td><td class="num wf-down">-2.33%</td><td class="num wf-down">-25.46%</td><td class="num">53.2%<span class="wf-code">n=154</span></td></tr><tr><td>创业板ETF易方达<span class="wf-code">159915</span></td><td class="num">66.4</td><td class="num ">+0.10</td><td class="num ">+0.08</td><td class="num wf-down">-4.60%</td><td class="num wf-down">-0.54%</td><td class="num">64.8%<span class="wf-code">n=196</span></td></tr><tr><td>黄金ETF华安<span class="wf-code">518880</span></td><td class="num">69.9</td><td class="num ">+0.36</td><td class="num ">+0.26</td><td class="num wf-up">+7.04%</td><td class="num wf-up">+9.42%</td><td class="num">68.8%<span class="wf-code">n=237</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="wf-factor">
+    <h3>单因子边际贡献（未来 20 日）</h3>
+    <p class="wf-sub">加分时的平均收益 − 扣分时的平均收益。edge 越大，说明该条件越能区分后续走势。</p>
+    <div class="wf-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">因子</th><th scope="col">当前权重</th>
+            <th scope="col">加分样本</th><th scope="col">加分收益</th>
+            <th scope="col">扣分样本</th><th scope="col">扣分收益</th>
+            <th scope="col">edge</th><th scope="col">结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>年化波动率</td><td class="num wf-mono">+4 / −8</td><td class="num">1904</td><td class="num wf-up">+1.77%</td><td class="num">149</td><td class="num wf-down">-3.60%</td><td class="num wf-up">+5.37%</td><td class="wf-verdict">方向有效</td></tr><tr><td>近 120 日回撤</td><td class="num wf-mono">−6</td><td class="num">0</td><td class="num">—</td><td class="num">324</td><td class="num wf-down">-0.61%</td><td class="num wf-up">+1.95%</td><td class="wf-verdict">方向有效<span class="wf-mono">未触发 vs 扣分</span></td></tr><tr><td>MACD 柱与斜率</td><td class="num wf-mono">+8 / −7</td><td class="num">1248</td><td class="num wf-up">+1.91%</td><td class="num">1739</td><td class="num wf-up">+0.52%</td><td class="num wf-up">+1.39%</td><td class="wf-verdict">方向有效</td></tr><tr><td>RSI 区间</td><td class="num wf-mono">+7 / −6 / −4</td><td class="num">1698</td><td class="num wf-up">+0.88%</td><td class="num">413</td><td class="num wf-up">+2.26%</td><td class="num wf-down">-1.38%</td><td class="wf-verdict">方向相反</td></tr><tr><td>价格 vs MA20</td><td class="num wf-mono">+9 / −9</td><td class="num">1727</td><td class="num wf-up">+1.57%</td><td class="num">1569</td><td class="num wf-up">+0.69%</td><td class="num wf-up">+0.88%</td><td class="wf-verdict">弱有效</td></tr><tr><td>MA20 vs MA60</td><td class="num wf-mono">+9 / −7</td><td class="num">1943</td><td class="num wf-up">+0.96%</td><td class="num">1353</td><td class="num wf-up">+1.42%</td><td class="num wf-down">-0.47%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>量比 + 当日涨跌</td><td class="num wf-mono">+4 / −5</td><td class="num">334</td><td class="num wf-up">+1.52%</td><td class="num">118</td><td class="num wf-up">+1.83%</td><td class="num wf-down">-0.30%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>近 20 日涨幅</td><td class="num wf-mono">+5 / −6 / −3</td><td class="num">1580</td><td class="num wf-up">+1.70%</td><td class="num">194</td><td class="num wf-up">+1.96%</td><td class="num wf-down">-0.26%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>价格 vs MA120</td><td class="num wf-mono">+6 / −6</td><td class="num">2214</td><td class="num wf-up">+1.20%</td><td class="num">1082</td><td class="num wf-up">+1.04%</td><td class="num wf-up">+0.16%</td><td class="wf-verdict">弱有效</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="wf-note">回撤为该周期窗口内收盘价的最大回撤均值；胜率为未来收益大于 0 的比例。
+    收益为绝对收益，未剔除同期指数涨跌，以评估日收盘价为入场价；相邻评估点窗口重叠，
+    IC 的 t 值按有效样本折算，指标只用于方向性比较。
+    统计区间 2024-11-07 至 2026-07-20，生成于 2026-10-20 17:16，预热 130 根 K 线。</p>
+</section>
