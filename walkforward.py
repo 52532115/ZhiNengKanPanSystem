@@ -27,7 +27,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
-from analyzer import FACTOR_META, analyze, max_drawdown, score_factors
+from analyzer import (
+    BASE_SCORE,
+    DEFAULT_PROFILE,
+    DEFAULT_WEIGHTS,
+    FACTOR_LABELS,
+    WEIGHT_PROFILES,
+    analyze,
+    max_drawdown,
+    score_factors,
+    weight_text,
+)
 from market_data import MarketDataClient, MarketDataError
 
 ROOT = Path(__file__).resolve().parent
@@ -143,11 +153,12 @@ def load_all(
 # 现在评分只有 analyzer.score_factors 一个事实来源，复刻逻辑已删除；
 # 保留 score_breakdown 作为报告层的适配器（返回 key -> delta）。
 
-FACTOR_LABELS: dict[str, tuple[str, str]] = FACTOR_META
 
-
-def score_breakdown(history: dict[str, Any]) -> tuple[int, dict[str, int]]:
-    score, factors = score_factors(history)
+def score_breakdown(
+    history: dict[str, Any],
+    weights: dict[str, tuple[int, ...]] | None = None,
+) -> tuple[int, dict[str, int]]:
+    score, factors = score_factors(history, weights)
     return score, {factor["key"]: factor["delta"] for factor in factors}
 
 
@@ -175,6 +186,7 @@ def walk_forward(
     history: dict[str, Any],
     *,
     benchmark: dict[str, Any] | None = None,
+    weights: dict[str, tuple[int, ...]] | None = None,
     horizons: tuple[int, ...] = HORIZONS,
     stride: int = 1,
     warmup: int = WARMUP,
@@ -203,7 +215,7 @@ def walk_forward(
     samples: list[dict[str, Any]] = []
     for index in range(warmup - 1, len(rows) - span):
         prefix = {**meta, "rows": rows[: index + 1]}
-        result = analyze(prefix)
+        result = analyze(prefix, weights=weights)
         parts = {factor["key"]: factor["delta"] for factor in result["factors"]}
         if (index - (warmup - 1)) % stride:
             continue
@@ -481,6 +493,7 @@ def factor_table(
     samples: list[dict[str, Any]],
     horizon: int = 20,
     metric: str = "return",
+    weights: dict[str, tuple[int, ...]] | None = None,
 ) -> list[dict[str, Any]]:
     """单因子边际贡献：因子触发时，未来收益比未触发好多少。
 
@@ -491,8 +504,10 @@ def factor_table(
     有两类因子天然是单边的（如回撤只扣分、不加分），此时退化为
     "未触发 vs 扣分" 的对比，并在 basis 里注明口径，避免用 0 样本算差值。
     """
+    profile = weights or DEFAULT_WEIGHTS
     rows: list[dict[str, Any]] = []
-    for key, (label, weight) in FACTOR_LABELS.items():
+    for key, label in FACTOR_LABELS.items():
+        weight = weight_text(profile[key])
         positive: list[float] = []
         negative: list[float] = []
         neutral: list[float] = []
@@ -661,12 +676,14 @@ def build_report(
     stride: int,
     failures: list[dict[str, str]],
     benchmark: dict[str, Any] | None = None,
+    weights: dict[str, tuple[int, ...]] | None = None,
+    profile: str = DEFAULT_PROFILE,
 ) -> dict[str, Any]:
     dates = sorted({sample["date"] for sample in samples})
     summary = summarize(samples, HORIZONS)
     symbol_rows = per_symbol_stats(samples, histories)
-    factors = factor_table(samples, 20)
-    excess_factors = {row["key"]: row for row in factor_table(samples, 20, "excess")}
+    factors = factor_table(samples, 20, "return", weights)
+    excess_factors = {row["key"]: row for row in factor_table(samples, 20, "excess", weights)}
     for row in factors:
         peer = excess_factors.get(row["key"], {})
         row["excess_edge"] = peer.get("edge")
@@ -680,7 +697,8 @@ def build_report(
             "stride": stride,
             "warmup": WARMUP,
             "horizons": list(HORIZONS),
-            "score_base": 50,
+            "score_base": BASE_SCORE,
+            "weights": profile,
             "benchmark": benchmark["symbol"] if benchmark else None,
         },
         "coverage": {
@@ -742,7 +760,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"区间：{coverage['start_date']} → {coverage['end_date']}",
         "",
         f"规则：每个交易日只用截至当日的数据调用 `analyze()` 打分（预热 {params['warmup']} 根 K 线，"
-        f"步长 {params['stride']}），收益标签在其后单独计算。",
+        f"步长 {params['stride']}，权重档案 {params['weights']}），收益标签在其后单独计算。",
         "",
         "## 评分分桶 × 未来收益",
         "",
@@ -1032,7 +1050,7 @@ def render_html(report: dict[str, Any]) -> str:
   <h3 id="wfTitle">评分有效性验证</h3>
   <p class="wf-sub">每个交易日仅用截至当日的数据重新打分，再回看未来 5 / 20 / 60 日表现。
     {coverage['symbols']} 只标的 · {coverage['trading_days']} 个交易日 · {coverage['samples']} 个评估点 ·
-    {coverage['start_date']} → {coverage['end_date']}</p>
+    {coverage['start_date']} → {coverage['end_date']} · 权重 {params['weights']}</p>
   <div class="wf-scroll">
     <table>
       <caption>分桶口径：{' / '.join(f"{row['range']}={row['label']}" for row in report['buckets'])}</caption>
@@ -1168,7 +1186,11 @@ def run(
     refresh: bool = False,
     offline: bool = False,
     benchmark_symbol: str = "000300",
+    profile: str = DEFAULT_PROFILE,
 ) -> dict[str, Any]:
+    if profile not in WEIGHT_PROFILES:
+        raise ValueError(f"未知权重档案：{profile}（可选 {', '.join(WEIGHT_PROFILES)}）")
+    weights = WEIGHT_PROFILES[profile]
     histories, failures = load_all(symbols, days, refresh=refresh, offline=offline)
     if not histories:
         raise MarketDataError("没有任何标的可用，请检查网络或先联网跑一次生成缓存")
@@ -1182,7 +1204,7 @@ def run(
         print("提示：未取得基准行情，超额收益口径留空，仅输出绝对收益。", file=sys.stderr)
     samples: list[dict[str, Any]] = []
     for history in histories:
-        samples.extend(walk_forward(history, benchmark=benchmark, stride=stride))
+        samples.extend(walk_forward(history, benchmark=benchmark, weights=weights, stride=stride))
     samples.sort(key=lambda sample: sample["date"])
     return build_report(
         histories,
@@ -1191,6 +1213,8 @@ def run(
         stride=stride,
         failures=failures,
         benchmark=benchmark,
+        weights=weights,
+        profile=profile,
     )
 
 
@@ -1202,6 +1226,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--refresh", action="store_true", help="忽略缓存重新拉取行情")
     parser.add_argument("--offline", action="store_true", help="只用本地缓存，不访问网络")
     parser.add_argument("--benchmark", default="000300", help="超额收益基准代码，默认沪深300")
+    parser.add_argument(
+        "--weights",
+        default=DEFAULT_PROFILE,
+        choices=sorted(WEIGHT_PROFILES),
+        help="权重档案：v1 为初始手调版本，v2 为按超额 edge 重估版本",
+    )
     parser.add_argument("--outdir", default=str(REPORT_DIR), help="报告输出目录")
     args = parser.parse_args(argv)
 
@@ -1214,6 +1244,7 @@ def main(argv: list[str] | None = None) -> int:
             refresh=args.refresh,
             offline=args.offline,
             benchmark_symbol=args.benchmark,
+            profile=args.weights,
         )
     except MarketDataError as exc:
         print(f"验证失败：{exc}", file=sys.stderr)
@@ -1225,6 +1256,7 @@ def main(argv: list[str] | None = None) -> int:
         f"评估点 {coverage['samples']} 个，{coverage['symbols']} 只标的，"
         f"{coverage['start_date']} → {coverage['end_date']}"
     )
+    print(f"  权重档案：{report['params']['weights']}")
     for horizon in ("5", "20", "60"):
         ic = report["ic"][horizon]
         print(f"  未来 {horizon} 日 IC = {ic['ic']}（t={ic['t']}）")

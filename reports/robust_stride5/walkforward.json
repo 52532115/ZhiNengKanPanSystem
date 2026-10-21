@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-21 10:51",
+  "generated_at": "2026-10-21 10:59",
   "params": {
     "symbols": [
       "600519",
@@ -20,6 +20,7 @@
       60
     ],
     "score_base": 50,
+    "weights": "v2",
     "benchmark": "000300"
   },
   "coverage": {
@@ -36,60 +37,60 @@
       "range": "0–29",
       "label": "高风险",
       "tone": "negative",
-      "n": 112,
-      "share": 16.9,
-      "score_mean": 19.9,
+      "n": 82,
+      "share": 12.3,
+      "score_mean": 24.4,
       "horizons": {
         "5": {
-          "n": 112,
-          "independent_windows": 22,
-          "mean": 0.05,
-          "median": 0.03,
-          "p25": -1.64,
-          "p75": 2.19,
+          "n": 82,
+          "independent_windows": 16,
+          "mean": 0.29,
+          "median": 0.56,
+          "p25": -2.26,
+          "p75": 3.22,
           "worst": -14.17,
-          "best": 10.41,
-          "win_rate": 50.9,
-          "mdd_mean": -2.49,
+          "best": 9.37,
+          "win_rate": 56.1,
+          "mdd_mean": -2.77,
           "mdd_worst": -15.78,
-          "excess_n": 112,
-          "excess_mean": -0.25,
-          "excess_median": -0.19,
-          "excess_win_rate": 46.4
+          "excess_n": 82,
+          "excess_mean": -0.07,
+          "excess_median": 0.1,
+          "excess_win_rate": 51.2
         },
         "20": {
-          "n": 112,
-          "independent_windows": 6,
-          "mean": 1.49,
-          "median": 1.31,
-          "p25": -4.27,
-          "p75": 6.16,
+          "n": 82,
+          "independent_windows": 4,
+          "mean": 1.04,
+          "median": 0.47,
+          "p25": -5.59,
+          "p75": 6.04,
           "worst": -19.17,
           "best": 33.61,
-          "win_rate": 55.4,
-          "mdd_mean": -5.96,
+          "win_rate": 52.4,
+          "mdd_mean": -6.79,
           "mdd_worst": -19.17,
-          "excess_n": 112,
-          "excess_mean": 0.2,
-          "excess_median": -0.05,
-          "excess_win_rate": 48.2
+          "excess_n": 82,
+          "excess_mean": -0.01,
+          "excess_median": -1.09,
+          "excess_win_rate": 43.9
         },
         "60": {
-          "n": 112,
-          "independent_windows": 2,
-          "mean": 3.04,
-          "median": 2.19,
-          "p25": -6.94,
-          "p75": 8.94,
-          "worst": -28.78,
+          "n": 82,
+          "independent_windows": 1,
+          "mean": 1.79,
+          "median": 0.42,
+          "p25": -9.54,
+          "p75": 7.88,
+          "worst": -26.34,
           "best": 58.76,
-          "win_rate": 56.2,
-          "mdd_mean": -12.51,
+          "win_rate": 50.0,
+          "mdd_mean": -13.71,
           "mdd_worst": -33.87,
-          "excess_n": 112,
-          "excess_mean": 1.4,
-          "excess_median": 1.08,
-          "excess_win_rate": 55.4
+          "excess_n": 82,
+          "excess_mean": 0.78,
+          "excess_median": -1.73,
+          "excess_win_rate": 47.6
         }
       }
     },
@@ -98,60 +99,60 @@
       "range": "30–44",
       "label": "谨慎",
       "tone": "negative",
-      "n": 82,
-      "share": 12.3,
-      "score_mean": 36.2,
+      "n": 144,
+      "share": 21.7,
+      "score_mean": 37.0,
       "horizons": {
         "5": {
-          "n": 82,
-          "independent_windows": 16,
-          "mean": 0.22,
-          "median": 0.51,
-          "p25": -1.7,
-          "p75": 2.22,
+          "n": 144,
+          "independent_windows": 29,
+          "mean": -0.04,
+          "median": -0.04,
+          "p25": -1.89,
+          "p75": 1.66,
           "worst": -12.6,
           "best": 12.19,
-          "win_rate": 56.1,
-          "mdd_mean": -2.3,
+          "win_rate": 50.0,
+          "mdd_mean": -2.4,
           "mdd_worst": -14.0,
-          "excess_n": 82,
-          "excess_mean": -0.19,
-          "excess_median": -0.2,
-          "excess_win_rate": 42.7
+          "excess_n": 144,
+          "excess_mean": -0.17,
+          "excess_median": -0.3,
+          "excess_win_rate": 39.6
         },
         "20": {
-          "n": 82,
-          "independent_windows": 4,
-          "mean": 0.68,
-          "median": 0.64,
-          "p25": -5.13,
-          "p75": 5.33,
-          "worst": -13.16,
-          "best": 17.39,
-          "win_rate": 52.4,
-          "mdd_mean": -5.98,
-          "mdd_worst": -18.85,
-          "excess_n": 82,
-          "excess_mean": -0.6,
-          "excess_median": -0.97,
-          "excess_win_rate": 46.3
+          "n": 144,
+          "independent_windows": 7,
+          "mean": 0.42,
+          "median": 0.4,
+          "p25": -4.13,
+          "p75": 4.47,
+          "worst": -16.57,
+          "best": 24.66,
+          "win_rate": 51.4,
+          "mdd_mean": -6.2,
+          "mdd_worst": -21.47,
+          "excess_n": 144,
+          "excess_mean": -0.63,
+          "excess_median": -0.28,
+          "excess_win_rate": 45.8
         },
         "60": {
-          "n": 82,
-          "independent_windows": 1,
-          "mean": 1.17,
-          "median": -0.64,
-          "p25": -7.26,
-          "p75": 4.85,
-          "worst": -22.25,
-          "best": 50.41,
-          "win_rate": 47.6,
-          "mdd_mean": -12.43,
-          "mdd_worst": -30.31,
-          "excess_n": 82,
-          "excess_mean": -0.66,
-          "excess_median": -1.31,
-          "excess_win_rate": 45.1
+          "n": 144,
+          "independent_windows": 2,
+          "mean": 2.63,
+          "median": 0.35,
+          "p25": -6.01,
+          "p75": 8.8,
+          "worst": -28.78,
+          "best": 52.0,
+          "win_rate": 50.7,
+          "mdd_mean": -11.89,
+          "mdd_worst": -32.34,
+          "excess_n": 144,
+          "excess_mean": 0.66,
+          "excess_median": 0.33,
+          "excess_win_rate": 53.5
         }
       }
     },
@@ -160,60 +161,60 @@
       "range": "45–59",
       "label": "中性观察",
       "tone": "neutral",
-      "n": 91,
-      "share": 13.7,
-      "score_mean": 51.7,
+      "n": 113,
+      "share": 17.0,
+      "score_mean": 50.1,
       "horizons": {
         "5": {
-          "n": 91,
-          "independent_windows": 18,
-          "mean": 0.4,
-          "median": 0.65,
-          "p25": -2.1,
-          "p75": 2.75,
-          "worst": -10.33,
+          "n": 113,
+          "independent_windows": 23,
+          "mean": -0.03,
+          "median": 0.19,
+          "p25": -2.29,
+          "p75": 2.33,
+          "worst": -18.2,
           "best": 14.86,
-          "win_rate": 57.1,
-          "mdd_mean": -2.51,
-          "mdd_worst": -10.45,
-          "excess_n": 91,
-          "excess_mean": 0.26,
-          "excess_median": -0.17,
-          "excess_win_rate": 47.3
+          "win_rate": 52.2,
+          "mdd_mean": -2.55,
+          "mdd_worst": -18.2,
+          "excess_n": 113,
+          "excess_mean": -0.11,
+          "excess_median": -0.04,
+          "excess_win_rate": 46.9
         },
         "20": {
-          "n": 91,
-          "independent_windows": 5,
-          "mean": -0.05,
-          "median": 0.24,
-          "p25": -4.43,
-          "p75": 3.02,
-          "worst": -16.57,
+          "n": 113,
+          "independent_windows": 6,
+          "mean": 0.13,
+          "median": -0.53,
+          "p25": -3.64,
+          "p75": 3.15,
+          "worst": -16.7,
           "best": 25.8,
-          "win_rate": 52.7,
-          "mdd_mean": -6.9,
-          "mdd_worst": -21.47,
-          "excess_n": 91,
-          "excess_mean": -0.47,
-          "excess_median": -0.23,
-          "excess_win_rate": 48.4
+          "win_rate": 47.8,
+          "mdd_mean": -6.33,
+          "mdd_worst": -25.94,
+          "excess_n": 113,
+          "excess_mean": -0.12,
+          "excess_median": -0.04,
+          "excess_win_rate": 47.8
         },
         "60": {
-          "n": 91,
+          "n": 113,
           "independent_windows": 2,
-          "mean": 4.18,
-          "median": 2.28,
-          "p25": -4.86,
-          "p75": 10.7,
-          "worst": -22.76,
-          "best": 52.0,
-          "win_rate": 57.1,
-          "mdd_mean": -11.02,
-          "mdd_worst": -30.2,
-          "excess_n": 91,
-          "excess_mean": 1.87,
-          "excess_median": 0.53,
-          "excess_win_rate": 56.0
+          "mean": 2.57,
+          "median": 1.76,
+          "p25": -5.79,
+          "p75": 9.47,
+          "worst": -31.82,
+          "best": 44.12,
+          "win_rate": 57.5,
+          "mdd_mean": -11.16,
+          "mdd_worst": -31.82,
+          "excess_n": 113,
+          "excess_mean": 0.67,
+          "excess_median": 0.44,
+          "excess_win_rate": 57.5
         }
       }
     },
@@ -222,60 +223,60 @@
       "range": "60–74",
       "label": "谨慎偏多",
       "tone": "positive",
-      "n": 117,
-      "share": 17.6,
-      "score_mean": 66.4,
+      "n": 154,
+      "share": 23.2,
+      "score_mean": 67.8,
       "horizons": {
         "5": {
-          "n": 117,
-          "independent_windows": 23,
-          "mean": 0.02,
-          "median": 0.03,
-          "p25": -1.99,
-          "p75": 1.87,
-          "worst": -18.2,
+          "n": 154,
+          "independent_windows": 31,
+          "mean": 0.15,
+          "median": -0.01,
+          "p25": -1.9,
+          "p75": 2.2,
+          "worst": -10.12,
           "best": 11.19,
-          "win_rate": 50.4,
-          "mdd_mean": -2.61,
-          "mdd_worst": -18.2,
-          "excess_n": 117,
-          "excess_mean": -0.01,
-          "excess_median": -0.04,
-          "excess_win_rate": 48.7
+          "win_rate": 50.0,
+          "mdd_mean": -2.6,
+          "mdd_worst": -12.92,
+          "excess_n": 154,
+          "excess_mean": -0.03,
+          "excess_median": 0.03,
+          "excess_win_rate": 51.3
         },
         "20": {
-          "n": 117,
-          "independent_windows": 6,
-          "mean": 0.47,
-          "median": -0.24,
-          "p25": -3.38,
-          "p75": 4.24,
-          "worst": -16.7,
-          "best": 25.35,
-          "win_rate": 47.9,
-          "mdd_mean": -6.64,
-          "mdd_worst": -25.94,
-          "excess_n": 117,
-          "excess_mean": 0.01,
-          "excess_median": -0.04,
-          "excess_win_rate": 47.9
+          "n": 154,
+          "independent_windows": 8,
+          "mean": 0.79,
+          "median": -0.1,
+          "p25": -3.57,
+          "p75": 4.97,
+          "worst": -17.79,
+          "best": 27.14,
+          "win_rate": 49.4,
+          "mdd_mean": -6.95,
+          "mdd_worst": -28.31,
+          "excess_n": 154,
+          "excess_mean": 0.05,
+          "excess_median": 0.24,
+          "excess_win_rate": 54.5
         },
         "60": {
-          "n": 117,
-          "independent_windows": 2,
-          "mean": 1.92,
-          "median": 0.46,
-          "p25": -6.08,
-          "p75": 6.48,
-          "worst": -31.82,
+          "n": 154,
+          "independent_windows": 3,
+          "mean": 3.08,
+          "median": 1.38,
+          "p25": -6.18,
+          "p75": 11.21,
+          "worst": -30.01,
           "best": 52.56,
-          "win_rate": 51.3,
-          "mdd_mean": -12.27,
-          "mdd_worst": -31.82,
-          "excess_n": 117,
-          "excess_mean": -0.47,
-          "excess_median": 0.4,
-          "excess_win_rate": 54.7
+          "win_rate": 55.2,
+          "mdd_mean": -12.61,
+          "mdd_worst": -31.08,
+          "excess_n": 154,
+          "excess_mean": -0.36,
+          "excess_median": 0.18,
+          "excess_win_rate": 51.9
         }
       }
     },
@@ -284,99 +285,99 @@
       "range": "75–100",
       "label": "偏积极",
       "tone": "positive",
-      "n": 262,
-      "share": 39.5,
-      "score_mean": 86.4,
+      "n": 171,
+      "share": 25.8,
+      "score_mean": 81.0,
       "horizons": {
         "5": {
-          "n": 262,
-          "independent_windows": 52,
-          "mean": 0.32,
-          "median": 0.21,
-          "p25": -1.9,
-          "p75": 2.34,
+          "n": 171,
+          "independent_windows": 34,
+          "mean": 0.63,
+          "median": 0.57,
+          "p25": -1.46,
+          "p75": 2.62,
           "worst": -11.6,
           "best": 15.11,
-          "win_rate": 51.9,
-          "mdd_mean": -2.58,
+          "win_rate": 56.1,
+          "mdd_mean": -2.44,
           "mdd_worst": -16.77,
-          "excess_n": 262,
-          "excess_mean": 0.22,
-          "excess_median": 0.06,
-          "excess_win_rate": 52.3
+          "excess_n": 171,
+          "excess_mean": 0.5,
+          "excess_median": 0.07,
+          "excess_win_rate": 54.4
         },
         "20": {
-          "n": 262,
-          "independent_windows": 13,
-          "mean": 1.71,
-          "median": 0.85,
-          "p25": -3.73,
-          "p75": 6.36,
+          "n": 171,
+          "independent_windows": 9,
+          "mean": 2.57,
+          "median": 1.8,
+          "p25": -3.54,
+          "p75": 7.19,
           "worst": -18.88,
           "best": 31.58,
-          "win_rate": 55.0,
-          "mdd_mean": -6.63,
-          "mdd_worst": -28.31,
-          "excess_n": 262,
-          "excess_mean": 1.01,
-          "excess_median": 0.28,
-          "excess_win_rate": 58.4
+          "win_rate": 62.0,
+          "mdd_mean": -6.23,
+          "mdd_worst": -22.91,
+          "excess_n": 171,
+          "excess_mean": 1.72,
+          "excess_median": 0.38,
+          "excess_win_rate": 61.4
         },
         "60": {
-          "n": 262,
-          "independent_windows": 4,
-          "mean": 4.28,
-          "median": 1.71,
-          "p25": -5.26,
-          "p75": 13.27,
-          "worst": -21.84,
+          "n": 171,
+          "independent_windows": 3,
+          "mean": 5.11,
+          "median": 1.86,
+          "p25": -4.33,
+          "p75": 13.8,
+          "worst": -21.74,
           "best": 54.65,
-          "win_rate": 55.3,
-          "mdd_mean": -12.57,
+          "win_rate": 55.6,
+          "mdd_mean": -12.36,
           "mdd_worst": -31.19,
-          "excess_n": 262,
-          "excess_mean": 1.7,
-          "excess_median": 0.48,
-          "excess_win_rate": 58.0
+          "excess_n": 171,
+          "excess_mean": 2.82,
+          "excess_median": 0.86,
+          "excess_win_rate": 61.4
         }
       }
     }
   ],
   "ic": {
     "5": {
-      "ic": 0.027,
+      "ic": 0.044,
       "n": 664,
       "n_effective": 133,
-      "t": 0.31,
+      "t": 0.5,
       "significant": false
     },
     "20": {
-      "ic": 0.036,
+      "ic": 0.066,
       "n": 664,
       "n_effective": 33,
-      "t": 0.2,
+      "t": 0.37,
       "significant": false
     },
     "60": {
-      "ic": 0.058,
+      "ic": 0.074,
       "n": 664,
       "n_effective": 11,
-      "t": 0.17,
+      "t": 0.22,
       "significant": false
     }
   },
   "spread": {
     "5": {
-      "top_minus_bottom": 0.27,
+      "top_minus_bottom": 0.34,
       "monotone_pairs": "3/4"
     },
     "20": {
-      "top_minus_bottom": 0.22,
+      "top_minus_bottom": 1.53,
       "monotone_pairs": "2/4"
     },
     "60": {
-      "top_minus_bottom": 1.24,
-      "monotone_pairs": "2/4"
+      "top_minus_bottom": 3.32,
+      "monotone_pairs": "3/4"
     }
   },
   "excess": {
@@ -391,26 +392,26 @@
         "range": "0–29",
         "label": "高风险",
         "tone": "negative",
-        "n": 112,
-        "share": 16.9,
+        "n": 82,
+        "share": 12.3,
         "horizons": {
           "5": {
-            "n": 112,
-            "mean": -0.25,
-            "median": -0.19,
-            "win_rate": 46.4
+            "n": 82,
+            "mean": -0.07,
+            "median": 0.1,
+            "win_rate": 51.2
           },
           "20": {
-            "n": 112,
-            "mean": 0.2,
-            "median": -0.05,
-            "win_rate": 48.2
+            "n": 82,
+            "mean": -0.01,
+            "median": -1.09,
+            "win_rate": 43.9
           },
           "60": {
-            "n": 112,
-            "mean": 1.4,
-            "median": 1.08,
-            "win_rate": 55.4
+            "n": 82,
+            "mean": 0.78,
+            "median": -1.73,
+            "win_rate": 47.6
           }
         }
       },
@@ -419,26 +420,26 @@
         "range": "30–44",
         "label": "谨慎",
         "tone": "negative",
-        "n": 82,
-        "share": 12.3,
+        "n": 144,
+        "share": 21.7,
         "horizons": {
           "5": {
-            "n": 82,
-            "mean": -0.19,
-            "median": -0.2,
-            "win_rate": 42.7
+            "n": 144,
+            "mean": -0.17,
+            "median": -0.3,
+            "win_rate": 39.6
           },
           "20": {
-            "n": 82,
-            "mean": -0.6,
-            "median": -0.97,
-            "win_rate": 46.3
+            "n": 144,
+            "mean": -0.63,
+            "median": -0.28,
+            "win_rate": 45.8
           },
           "60": {
-            "n": 82,
-            "mean": -0.66,
-            "median": -1.31,
-            "win_rate": 45.1
+            "n": 144,
+            "mean": 0.66,
+            "median": 0.33,
+            "win_rate": 53.5
           }
         }
       },
@@ -447,26 +448,26 @@
         "range": "45–59",
         "label": "中性观察",
         "tone": "neutral",
-        "n": 91,
-        "share": 13.7,
+        "n": 113,
+        "share": 17.0,
         "horizons": {
           "5": {
-            "n": 91,
-            "mean": 0.26,
-            "median": -0.17,
-            "win_rate": 47.3
+            "n": 113,
+            "mean": -0.11,
+            "median": -0.04,
+            "win_rate": 46.9
           },
           "20": {
-            "n": 91,
-            "mean": -0.47,
-            "median": -0.23,
-            "win_rate": 48.4
+            "n": 113,
+            "mean": -0.12,
+            "median": -0.04,
+            "win_rate": 47.8
           },
           "60": {
-            "n": 91,
-            "mean": 1.87,
-            "median": 0.53,
-            "win_rate": 56.0
+            "n": 113,
+            "mean": 0.67,
+            "median": 0.44,
+            "win_rate": 57.5
           }
         }
       },
@@ -475,26 +476,26 @@
         "range": "60–74",
         "label": "谨慎偏多",
         "tone": "positive",
-        "n": 117,
-        "share": 17.6,
+        "n": 154,
+        "share": 23.2,
         "horizons": {
           "5": {
-            "n": 117,
-            "mean": -0.01,
-            "median": -0.04,
-            "win_rate": 48.7
+            "n": 154,
+            "mean": -0.03,
+            "median": 0.03,
+            "win_rate": 51.3
           },
           "20": {
-            "n": 117,
-            "mean": 0.01,
-            "median": -0.04,
-            "win_rate": 47.9
+            "n": 154,
+            "mean": 0.05,
+            "median": 0.24,
+            "win_rate": 54.5
           },
           "60": {
-            "n": 117,
-            "mean": -0.47,
-            "median": 0.4,
-            "win_rate": 54.7
+            "n": 154,
+            "mean": -0.36,
+            "median": 0.18,
+            "win_rate": 51.9
           }
         }
       },
@@ -503,64 +504,64 @@
         "range": "75–100",
         "label": "偏积极",
         "tone": "positive",
-        "n": 262,
-        "share": 39.5,
+        "n": 171,
+        "share": 25.8,
         "horizons": {
           "5": {
-            "n": 262,
-            "mean": 0.22,
-            "median": 0.06,
-            "win_rate": 52.3
+            "n": 171,
+            "mean": 0.5,
+            "median": 0.07,
+            "win_rate": 54.4
           },
           "20": {
-            "n": 262,
-            "mean": 1.01,
-            "median": 0.28,
-            "win_rate": 58.4
+            "n": 171,
+            "mean": 1.72,
+            "median": 0.38,
+            "win_rate": 61.4
           },
           "60": {
-            "n": 262,
-            "mean": 1.7,
-            "median": 0.48,
-            "win_rate": 58.0
+            "n": 171,
+            "mean": 2.82,
+            "median": 0.86,
+            "win_rate": 61.4
           }
         }
       }
     ],
     "ic": {
       "5": {
-        "ic": 0.069,
+        "ic": 0.08,
         "n": 664,
         "n_effective": 133,
-        "t": 0.8,
+        "t": 0.92,
         "significant": false
       },
       "20": {
-        "ic": 0.082,
+        "ic": 0.101,
         "n": 664,
         "n_effective": 33,
-        "t": 0.46,
+        "t": 0.57,
         "significant": false
       },
       "60": {
-        "ic": 0.035,
+        "ic": 0.058,
         "n": 664,
         "n_effective": 11,
-        "t": 0.11,
+        "t": 0.17,
         "significant": false
       }
     },
     "spread": {
       "5": {
-        "top_minus_bottom": 0.47,
+        "top_minus_bottom": 0.57,
         "monotone_pairs": "3/4"
       },
       "20": {
-        "top_minus_bottom": 0.81,
+        "top_minus_bottom": 1.73,
         "monotone_pairs": "3/4"
       },
       "60": {
-        "top_minus_bottom": 0.3,
+        "top_minus_bottom": 2.04,
         "monotone_pairs": "2/4"
       }
     }
@@ -568,101 +569,101 @@
   "quantiles": [
     {
       "group": "Q1",
-      "score_low": 0,
-      "score_high": 33,
+      "score_low": 10,
+      "score_high": 36,
       "n": 133,
       "horizons": {
         "5": {
-          "mean": 0.1,
-          "win_rate": 51.9
+          "mean": 0.07,
+          "win_rate": 52.6
         },
         "20": {
-          "mean": 1.47,
-          "win_rate": 54.9
+          "mean": 1.02,
+          "win_rate": 53.4
         },
         "60": {
-          "mean": 3.06,
-          "win_rate": 54.9
+          "mean": 2.69,
+          "win_rate": 52.6
         }
       }
     },
     {
       "group": "Q2",
-      "score_low": 33,
-      "score_high": 54,
+      "score_low": 36,
+      "score_high": 48,
       "n": 133,
       "horizons": {
         "5": {
-          "mean": 0.2,
-          "win_rate": 56.4
+          "mean": 0.29,
+          "win_rate": 53.4
         },
         "20": {
-          "mean": 0.02,
-          "win_rate": 51.1
+          "mean": 0.41,
+          "win_rate": 50.4
         },
         "60": {
-          "mean": 2.85,
-          "win_rate": 53.4
+          "mean": 2.42,
+          "win_rate": 49.6
         }
       }
     },
     {
       "group": "Q3",
-      "score_low": 54,
-      "score_high": 74,
+      "score_low": 48,
+      "score_high": 67,
       "n": 132,
       "horizons": {
         "5": {
-          "mean": 0.17,
-          "win_rate": 51.5
+          "mean": -0.43,
+          "win_rate": 45.5
         },
         "20": {
-          "mean": 0.7,
-          "win_rate": 50.8
+          "mean": -0.68,
+          "win_rate": 43.9
         },
         "60": {
-          "mean": 2.18,
-          "win_rate": 52.3
+          "mean": 1.87,
+          "win_rate": 54.5
         }
       }
     },
     {
       "group": "Q4",
-      "score_low": 74,
-      "score_high": 85,
+      "score_low": 67,
+      "score_high": 78,
       "n": 133,
       "horizons": {
         "5": {
-          "mean": -0.16,
-          "win_rate": 50.4
+          "mean": 0.32,
+          "win_rate": 53.4
         },
         "20": {
-          "mean": 1.06,
-          "win_rate": 51.9
+          "mean": 2.18,
+          "win_rate": 54.9
         },
         "60": {
-          "mean": 2.36,
-          "win_rate": 53.4
+          "mean": 3.34,
+          "win_rate": 54.1
         }
       }
     },
     {
       "group": "Q5",
-      "score_low": 85,
-      "score_high": 100,
+      "score_low": 78,
+      "score_high": 89,
       "n": 133,
       "horizons": {
         "5": {
-          "mean": 0.79,
-          "win_rate": 53.4
+          "mean": 0.84,
+          "win_rate": 58.6
         },
         "20": {
-          "mean": 2.19,
-          "win_rate": 57.1
+          "mean": 2.5,
+          "win_rate": 63.2
         },
         "60": {
-          "mean": 5.84,
-          "win_rate": 56.4
+          "mean": 5.96,
+          "win_rate": 59.4
         }
       }
     }
@@ -673,13 +674,13 @@
       "name": "贵州茅台",
       "asset_type": "stock",
       "n": 83,
-      "score_mean": 54.4,
-      "ic20": -0.309,
-      "ic60": -0.466,
-      "spread20": -3.91,
-      "spread60": -8.43,
-      "win_top20": 17.4,
-      "n_top": 23,
+      "score_mean": 52.9,
+      "ic20": -0.256,
+      "ic60": -0.344,
+      "spread20": -3.23,
+      "spread60": -7.23,
+      "win_top20": 18.2,
+      "n_top": 22,
       "verdict": "反向"
     },
     {
@@ -687,13 +688,13 @@
       "name": "宁德时代",
       "asset_type": "stock",
       "n": 83,
-      "score_mean": 59.1,
-      "ic20": -0.094,
-      "ic60": 0.029,
-      "spread20": -3.89,
-      "spread60": 2.11,
-      "win_top20": 50.0,
-      "n_top": 30,
+      "score_mean": 53.4,
+      "ic20": -0.076,
+      "ic60": 0.062,
+      "spread20": -1.1,
+      "spread60": 7.22,
+      "win_top20": 61.9,
+      "n_top": 21,
       "verdict": "反向"
     },
     {
@@ -701,13 +702,13 @@
       "name": "中国平安",
       "asset_type": "stock",
       "n": 83,
-      "score_mean": 60.5,
-      "ic20": 0.1,
-      "ic60": 0.062,
-      "spread20": -0.89,
-      "spread60": -0.2,
-      "win_top20": 62.2,
-      "n_top": 37,
+      "score_mean": 56.7,
+      "ic20": 0.075,
+      "ic60": 0.088,
+      "spread20": -0.41,
+      "spread60": 3.83,
+      "win_top20": 73.9,
+      "n_top": 23,
       "verdict": "同向"
     },
     {
@@ -715,13 +716,13 @@
       "name": "五粮液",
       "asset_type": "stock",
       "n": 83,
-      "score_mean": 41.8,
-      "ic20": 0.02,
-      "ic60": -0.11,
-      "spread20": -2.93,
-      "spread60": -3.71,
-      "win_top20": 12.5,
-      "n_top": 8,
+      "score_mean": 43.8,
+      "ic20": 0.061,
+      "ic60": -0.026,
+      "spread20": -2.17,
+      "spread60": -4.85,
+      "win_top20": 0.0,
+      "n_top": 3,
       "verdict": "同向"
     },
     {
@@ -729,13 +730,13 @@
       "name": "沪深300ETF华泰柏瑞",
       "asset_type": "etf",
       "n": 83,
-      "score_mean": 70.8,
-      "ic20": -0.203,
-      "ic60": -0.059,
-      "spread20": -5.06,
-      "spread60": -5.86,
-      "win_top20": 59.6,
-      "n_top": 47,
+      "score_mean": 63.8,
+      "ic20": -0.157,
+      "ic60": -0.1,
+      "spread20": null,
+      "spread60": null,
+      "win_top20": 65.5,
+      "n_top": 29,
       "verdict": "反向"
     },
     {
@@ -743,13 +744,13 @@
       "name": "科创50ETF华夏",
       "asset_type": "etf",
       "n": 83,
-      "score_mean": 62.0,
-      "ic20": -0.133,
-      "ic60": -0.412,
-      "spread20": -4.22,
-      "spread60": -24.33,
-      "win_top20": 46.7,
-      "n_top": 30,
+      "score_mean": 56.5,
+      "ic20": -0.033,
+      "ic60": -0.355,
+      "spread20": -1.37,
+      "spread60": -16.79,
+      "win_top20": 61.1,
+      "n_top": 18,
       "verdict": "反向"
     },
     {
@@ -757,13 +758,13 @@
       "name": "创业板ETF易方达",
       "asset_type": "etf",
       "n": 83,
-      "score_mean": 66.3,
-      "ic20": 0.065,
-      "ic60": 0.069,
-      "spread20": -5.56,
-      "spread60": -1.01,
-      "win_top20": 66.7,
-      "n_top": 39,
+      "score_mean": 58.4,
+      "ic20": 0.136,
+      "ic60": 0.107,
+      "spread20": 1.02,
+      "spread60": 5.27,
+      "win_top20": 76.0,
+      "n_top": 25,
       "verdict": "同向"
     },
     {
@@ -771,13 +772,13 @@
       "name": "黄金ETF华安",
       "asset_type": "etf",
       "n": 83,
-      "score_mean": 70.6,
-      "ic20": 0.402,
-      "ic60": 0.293,
-      "spread20": 5.72,
-      "spread60": 5.71,
-      "win_top20": 68.8,
-      "n_top": 48,
+      "score_mean": 63.7,
+      "ic20": 0.349,
+      "ic60": 0.26,
+      "spread20": 6.94,
+      "spread60": 8.67,
+      "win_top20": 76.7,
+      "n_top": 30,
       "verdict": "同向"
     }
   ],
@@ -791,7 +792,7 @@
     {
       "key": "volatility",
       "label": "年化波动率",
-      "weight": "+4 / −8",
+      "weight": "+5 / −9",
       "n_positive": 385,
       "n_negative": 32,
       "n_neutral": 247,
@@ -810,7 +811,7 @@
     {
       "key": "drawdown",
       "label": "近 120 日回撤",
-      "weight": "−6",
+      "weight": "−7",
       "n_positive": 0,
       "n_negative": 66,
       "n_neutral": 598,
@@ -829,7 +830,7 @@
     {
       "key": "rsi",
       "label": "RSI 区间",
-      "weight": "+7 / −6 / −4",
+      "weight": "+3 / −3 / −2",
       "n_positive": 338,
       "n_negative": 96,
       "n_neutral": 230,
@@ -848,7 +849,7 @@
     {
       "key": "ret20",
       "label": "近 20 日涨幅",
-      "weight": "+5 / −6 / −3",
+      "weight": "+3 / −4 / −2",
       "n_positive": 321,
       "n_negative": 47,
       "n_neutral": 296,
@@ -867,7 +868,7 @@
     {
       "key": "trend",
       "label": "价格 vs MA20",
-      "weight": "+9 / −9",
+      "weight": "+8 / −8",
       "n_positive": 349,
       "n_negative": 315,
       "n_neutral": 0,
@@ -886,7 +887,7 @@
     {
       "key": "macd",
       "label": "MACD 柱与斜率",
-      "weight": "+8 / −7",
+      "weight": "+9 / −8",
       "n_positive": 255,
       "n_negative": 353,
       "n_neutral": 56,
@@ -905,7 +906,7 @@
     {
       "key": "align",
       "label": "MA20 vs MA60",
-      "weight": "+9 / −7",
+      "weight": "+3 / −3",
       "n_positive": 391,
       "n_negative": 273,
       "n_neutral": 0,
@@ -924,7 +925,7 @@
     {
       "key": "volume",
       "label": "量比 + 当日涨跌",
-      "weight": "+4 / −5",
+      "weight": "+3 / −3",
       "n_positive": 61,
       "n_negative": 19,
       "n_neutral": 584,
@@ -943,7 +944,7 @@
     {
       "key": "long",
       "label": "价格 vs MA120",
-      "weight": "+6 / −6",
+      "weight": "+5 / −5",
       "n_positive": 442,
       "n_negative": 222,
       "n_neutral": 0,

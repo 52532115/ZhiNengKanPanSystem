@@ -1,7 +1,18 @@
 import math
 import unittest
 
-from analyzer import FACTOR_META, analyze, ema, max_drawdown, rsi, score_factors, sma
+from analyzer import (
+    FACTOR_META,
+    WEIGHTS_V1,
+    WEIGHTS_V2,
+    analyze,
+    ema,
+    max_drawdown,
+    rsi,
+    score_factors,
+    sma,
+    weight_text,
+)
 
 
 def make_history(direction=1.0, count=260, symbol="600000", asset_type="stock"):
@@ -64,6 +75,17 @@ class IndicatorTests(unittest.TestCase):
         self.assertEqual(result["factors"], factors)
         expected_reasons = [factor["reason"] for factor in factors if factor["reason"]][:7]
         self.assertEqual([reason["text"] for reason in result["reasons"]], expected_reasons)
+
+    def test_weight_profiles_are_switchable(self):
+        history = make_history(1.0)
+        score_v1, factors_v1 = score_factors(history, WEIGHTS_V1)
+        score_v2, factors_v2 = score_factors(history, WEIGHTS_V2)
+        self.assertEqual(score_v1, analyze(history, weights=WEIGHTS_V1)["score"])
+        self.assertEqual(score_v2, analyze(history)["score"])
+        self.assertNotEqual(score_v1, score_v2)
+        self.assertEqual(score_v1, max(0, min(100, 50 + sum(f["delta"] for f in factors_v1))))
+        self.assertEqual(weight_text(WEIGHTS_V2["rsi"]), "+3 / −3 / −2")
+        self.assertEqual(factors_v2[0]["weight"], weight_text(WEIGHTS_V2["trend"]))
 
 
 if __name__ == "__main__":

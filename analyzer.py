@@ -71,27 +71,79 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
 
-# 九类评分规则的唯一事实来源：key -> (展示名, 权重说明)。
-# 前端的因子拆解和 walkforward 的单因子归因都从这里取标签，避免三处各写一套。
+# 九类评分规则的唯一事实来源：标签、权重、打分逻辑都只在这里维护。
+# 权重顺序与 score_factors 的分支一一对应：主加分 / 主扣分 / 次扣分。
+BASE_SCORE = 50
+
+FACTOR_LABELS: dict[str, str] = {
+    "trend": "价格 vs MA20",
+    "align": "MA20 vs MA60",
+    "long": "价格 vs MA120",
+    "macd": "MACD 柱与斜率",
+    "rsi": "RSI 区间",
+    "ret20": "近 20 日涨幅",
+    "volume": "量比 + 当日涨跌",
+    "volatility": "年化波动率",
+    "drawdown": "近 120 日回撤",
+}
+
+# v1：最初的拍脑袋权重，保留用于复现和对照。
+WEIGHTS_V1: dict[str, tuple[int, ...]] = {
+    "trend": (9, -9),
+    "align": (9, -7),
+    "long": (6, -6),
+    "macd": (8, -7),
+    "rsi": (7, -6, -4),
+    "ret20": (5, -6, -3),
+    "volume": (4, -5),
+    "volatility": (4, -8),
+    "drawdown": (-6,),
+}
+
+# v2：按超额收益单因子 edge 重估——下调 RSI / 均线对齐等噪声项，
+# 上调波动率、MACD 与 MA120 等方向更稳定的项；总振幅同时收窄。
+WEIGHTS_V2: dict[str, tuple[int, ...]] = {
+    "trend": (8, -8),
+    "align": (3, -3),
+    "long": (5, -5),
+    "macd": (9, -8),
+    "rsi": (3, -3, -2),
+    "ret20": (3, -4, -2),
+    "volume": (3, -3),
+    "volatility": (5, -9),
+    "drawdown": (-7,),
+}
+
+WEIGHT_PROFILES: dict[str, dict[str, tuple[int, ...]]] = {
+    "v1": WEIGHTS_V1,
+    "v2": WEIGHTS_V2,
+}
+DEFAULT_PROFILE = "v2"
+DEFAULT_WEIGHTS = WEIGHT_PROFILES[DEFAULT_PROFILE]
+
+
+def weight_text(values: tuple[int, ...]) -> str:
+    """把权重元组渲染成前端/报告里的 ``+9 / −9`` 文案。"""
+    return " / ".join(f"{value:+d}".replace("-", "−") for value in values)
+
+
+# 兼容旧调用：默认档案的 (标签, 权重文案)。
 FACTOR_META: dict[str, tuple[str, str]] = {
-    "trend": ("价格 vs MA20", "+9 / −9"),
-    "align": ("MA20 vs MA60", "+9 / −7"),
-    "long": ("价格 vs MA120", "+6 / −6"),
-    "macd": ("MACD 柱与斜率", "+8 / −7"),
-    "rsi": ("RSI 区间", "+7 / −6 / −4"),
-    "ret20": ("近 20 日涨幅", "+5 / −6 / −3"),
-    "volume": ("量比 + 当日涨跌", "+4 / −5"),
-    "volatility": ("年化波动率", "+4 / −8"),
-    "drawdown": ("近 120 日回撤", "−6"),
+    key: (label, weight_text(DEFAULT_WEIGHTS[key])) for key, label in FACTOR_LABELS.items()
 }
 
 
-def score_factors(history: dict[str, Any]) -> tuple[int, list[dict[str, Any]]]:
+def score_factors(
+    history: dict[str, Any],
+    weights: dict[str, tuple[int, ...]] | None = None,
+) -> tuple[int, list[dict[str, Any]]]:
     """把评分拆成单因子贡献，返回 ``(总分, 因子列表)``。
 
     总分 = 50 + Σdelta，与 ``analyze()`` 输出的 score 完全一致；
     ``reason`` 非空的因子会进入前端“判断依据”，空值只参与打分。
+    ``weights`` 可切换权重档案，walkforward 用它比较不同版本的排序能力。
     """
+    profile = weights or DEFAULT_WEIGHTS
     rows = history["rows"]
     closes = [row["close"] for row in rows]
     volumes = [row["volume"] for row in rows]
@@ -114,12 +166,11 @@ def score_factors(history: dict[str, Any]) -> tuple[int, list[dict[str, Any]]]:
     factors: list[dict[str, Any]] = []
 
     def record(key: str, delta: int, tone: str, reason: str | None = None) -> None:
-        label, weight = FACTOR_META[key]
         factors.append(
             {
                 "key": key,
-                "label": label,
-                "weight": weight,
+                "label": FACTOR_LABELS[key],
+                "weight": weight_text(profile[key]),
                 "delta": delta,
                 "tone": tone,
                 "reason": reason,
@@ -127,71 +178,75 @@ def score_factors(history: dict[str, Any]) -> tuple[int, list[dict[str, Any]]]:
         )
 
     if ma20[-1] and close > ma20[-1]:
-        record("trend", 9, "positive", "收盘价位于 20 日均线上方，短期趋势占优")
+        record("trend", profile["trend"][0], "positive", "收盘价位于 20 日均线上方，短期趋势占优")
     else:
-        record("trend", -9, "negative", "收盘价位于 20 日均线下方，短期趋势偏弱")
+        record("trend", profile["trend"][1], "negative", "收盘价位于 20 日均线下方，短期趋势偏弱")
 
     if ma20[-1] and ma60[-1] and ma20[-1] > ma60[-1]:
-        record("align", 9, "positive", "20 日均线高于 60 日均线，中期结构偏多")
+        record("align", profile["align"][0], "positive", "20 日均线高于 60 日均线，中期结构偏多")
     else:
-        record("align", -7, "negative", "20 日均线未站上 60 日均线，中期结构仍需修复")
+        record("align", profile["align"][1], "negative", "20 日均线未站上 60 日均线，中期结构仍需修复")
 
     if ma120[-1] is None:
         record("long", 0, "neutral")
     elif close > ma120[-1]:
-        record("long", 6, "positive")
+        record("long", profile["long"][0], "positive")
     else:
-        record("long", -6, "negative")
+        record("long", profile["long"][1], "negative")
 
     if histogram[-1] > 0 and dif[-1] > dif[-2]:
-        record("macd", 8, "positive", "MACD 动能柱为正且继续改善")
+        record("macd", profile["macd"][0], "positive", "MACD 动能柱为正且继续改善")
     elif histogram[-1] < 0:
-        record("macd", -7, "negative", "MACD 动能柱为负，反弹持续性需观察")
+        record("macd", profile["macd"][1], "negative", "MACD 动能柱为负，反弹持续性需观察")
     else:
         record("macd", 0, "neutral")
 
     if 48 <= current_rsi <= 68:
-        record("rsi", 7, "positive", f"RSI 为 {current_rsi:.1f}，动能健康且未明显过热")
+        record("rsi", profile["rsi"][0], "positive", f"RSI 为 {current_rsi:.1f}，动能健康且未明显过热")
     elif current_rsi > 75:
-        record("rsi", -6, "warning", f"RSI 为 {current_rsi:.1f}，短线存在过热和回撤风险")
+        record("rsi", profile["rsi"][1], "warning", f"RSI 为 {current_rsi:.1f}，短线存在过热和回撤风险")
     elif current_rsi < 35:
-        record("rsi", -4, "warning", f"RSI 为 {current_rsi:.1f}，处于弱势/超卖区间")
+        record("rsi", profile["rsi"][2], "warning", f"RSI 为 {current_rsi:.1f}，处于弱势/超卖区间")
     else:
         record("rsi", 0, "neutral")
 
     if 0 < ret20 < 15:
-        record("ret20", 5, "positive")
+        record("ret20", profile["ret20"][0], "positive")
     elif ret20 <= -10:
-        record("ret20", -6, "negative")
+        record("ret20", profile["ret20"][1], "negative")
     elif ret20 > 25:
-        record("ret20", -3, "warning", "近 20 日涨幅较大，不宜在加速段追高")
+        record("ret20", profile["ret20"][2], "warning", "近 20 日涨幅较大，不宜在加速段追高")
     else:
         record("ret20", 0, "neutral")
 
     if volume_ratio >= 1.3 and rows[-1]["pct_change"] > 0:
-        record("volume", 4, "positive", f"上涨伴随放量，量比约 {volume_ratio:.2f}")
+        record("volume", profile["volume"][0], "positive", f"上涨伴随放量，量比约 {volume_ratio:.2f}")
     elif volume_ratio >= 1.5 and rows[-1]["pct_change"] < 0:
-        record("volume", -5, "negative", "下跌伴随明显放量，抛压风险上升")
+        record("volume", profile["volume"][1], "negative", "下跌伴随明显放量，抛压风险上升")
     else:
         record("volume", 0, "neutral")
 
     if volatility > 55:
-        record("volatility", -8, "warning", f"年化波动约 {volatility:.1f}%，风险较高")
+        record("volatility", profile["volatility"][1], "warning", f"年化波动约 {volatility:.1f}%，风险较高")
     elif volatility < 28:
-        record("volatility", 4, "positive")
+        record("volatility", profile["volatility"][0], "positive")
     else:
         record("volatility", 0, "neutral")
 
     if drawdown < -25:
-        record("drawdown", -6, "warning", f"近 120 日最大回撤约 {drawdown:.1f}%")
+        record("drawdown", profile["drawdown"][0], "warning", f"近 120 日最大回撤约 {drawdown:.1f}%")
     else:
         record("drawdown", 0, "neutral")
 
-    total = 50 + sum(factor["delta"] for factor in factors)
+    total = BASE_SCORE + sum(factor["delta"] for factor in factors)
     return max(0, min(100, round(total))), factors
 
 
-def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dict[str, Any]:
+def analyze(
+    history: dict[str, Any],
+    quote: dict[str, Any] | None = None,
+    weights: dict[str, tuple[int, ...]] | None = None,
+) -> dict[str, Any]:
     rows = history["rows"]
     asset_type = history.get("asset_type", "stock")
     asset_label = {"stock": "A 股", "etf": "ETF", "fund": "场内基金", "index": "指数"}.get(asset_type, "证券")
@@ -222,7 +277,7 @@ def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dic
     volume_ma5_series = sma(volumes, 5)
     volume_ma10_series = sma(volumes, 10)
 
-    score, factors = score_factors(history)
+    score, factors = score_factors(history, weights)
     reasons = [
         {"type": factor["tone"], "text": factor["reason"]}
         for factor in factors
