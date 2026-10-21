@@ -22,7 +22,7 @@ python app.py
 - 相对强弱：个股与沪深 300 归一化到 100 后同图对比，并给出 RS 比率曲线，用于区分「真强」与「普涨」；
 - 自选股组合面板：服务端并发批量取回价格、涨跌幅、评分与研判，按分数排序并把异动标的置顶；
 - 上证指数、深证成指、创业板指共同判断市场环境；
-- 给出 0–100 研究评分、逐条判断依据、仓位纪律和价格参考；
+- 给出 0–100 研究评分、逐条判断依据、评分因子贡献条、仓位纪律和价格参考；
 - 浏览器本地保存自选股；
 - 5 分钟历史行情缓存和 20 秒快照缓存；
 - 不需要安装 Flask、pandas 或数据库。
@@ -31,7 +31,7 @@ python app.py
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/analyze?symbol=600519` | 单只标的的评分、图表与关键价位 |
+| GET | `/api/analyze?symbol=600519` | 单只标的的评分、因子贡献、图表与关键价位 |
 | GET | `/api/search?q=茅台` | 代码/名称/拼音联想，仅返回沪深 A 股与场内基金 |
 | GET | `/api/rs?symbol=600519&benchmark=000300&days=120` | 归一化对比与 RS 比率，`days` 取值 40–250 |
 | GET | `/api/market` | 三大指数合成的市场环境 |
@@ -55,9 +55,13 @@ python walkforward.py
 python walkforward.py --offline
 # 步长 5 抽样，降低重叠窗口影响，做稳健性复核
 python walkforward.py --stride 5 --outdir reports/robust_stride5
+# 更换超额收益基准（默认沪深300）
+python walkforward.py --benchmark 000905
 ```
 
 规则：对每个历史交易日，只用 `rows[:t+1]` 调用一次 `analyze()` 打分，未来 5 / 20 / 60 日收益在评分之后单独计算，不回流到入参，因此不存在未来数据泄露（`tests/test_walkforward.py` 用「截断尾部后历史评分必须不变」覆盖该点）。
+
+报告同时给出两套口径：绝对收益，以及「个股收益 − 同期沪深 300 收益」的超额收益。后者用于剥离 beta 和普涨——单边行情里所有分桶都涨，并不代表评分有排序能力。
 
 输出到 `reports/`：
 
@@ -66,9 +70,9 @@ python walkforward.py --stride 5 --outdir reports/robust_stride5
 | `walkforward_table.html` | 自带作用域样式的表格片段，可直接粘进 `index.html` 的 methodology 区块 |
 | `walkforward_preview.html` | 套上项目色板的独立预览页 |
 | `walkforward.md` | 便于审阅和归档的 Markdown 版 |
-| `walkforward.json` | 机器可读结果，含分位数分组与单因子归因明细 |
+| `walkforward.json` | 机器可读结果，含分位数分组、超额收益与单因子归因明细 |
 
-脚本还会复刻 `analyze()` 的九类条件做单因子归因，并在每个评估点断言复刻总分与 `analyze()` 完全一致——权重改动后若忘记同步，测试会立刻失败。
+评分规则只有 `analyzer.score_factors()` 一个事实来源：前端「评分构成」面板、`analyze()` 的总分与判断依据、walkforward 的单因子归因都复用它，不再维护第二份复刻逻辑。
 
 另外会按标的分别复核：把不同标的混在一起统计时，合并样本的正相关可能只反映品种间差异，报告会显式标注「合并口径」与「分标的」的背离，并给出五等分交叉验证，避免用一张表就下结论。
 

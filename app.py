@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DATA = MarketDataClient()
 
-APP_VERSION = "1.2"
+APP_VERSION = "1.3"
 # 供前端和 /api/health 自检：旧进程没有这些路由时会以 JSON 404 明确报错，
 # 而不是退回静态文件服务返回 HTML。
 API_ROUTES = ("/api/health", "/api/analyze", "/api/search", "/api/rs", "/api/market", "/api/batch")
@@ -187,7 +187,7 @@ class Handler(BaseHTTPRequestHandler):
                         "status": "ok",
                         "version": APP_VERSION,
                         "routes": list(API_ROUTES),
-                        "features": ["search", "relative_strength", "batch", "candlestick"],
+                        "features": ["search", "relative_strength", "batch", "candlestick", "score_factors"],
                     },
                 )
                 return

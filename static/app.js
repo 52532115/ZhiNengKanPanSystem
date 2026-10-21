@@ -190,6 +190,31 @@ function renderMetrics(metrics, assetType) {
   ).join("");
 }
 
+function renderFactors(factors) {
+  const block = $("#factorBlock");
+  const box = $("#factors");
+  if (!block || !box) return;
+  if (!Array.isArray(factors) || !factors.length) {
+    block.classList.add("hidden");
+    box.innerHTML = "";
+    return;
+  }
+  block.classList.remove("hidden");
+  const peak = Math.max(9, ...factors.map((factor) => Math.abs(Number(factor.delta) || 0)));
+  box.innerHTML = factors.map((factor) => {
+    const delta = Number(factor.delta) || 0;
+    const width = Math.min(50, (Math.abs(delta) / peak) * 50);
+    const tone = factor.tone || (delta > 0 ? "positive" : delta < 0 ? "negative" : "neutral");
+    const side = delta > 0 ? "pos" : delta < 0 ? "neg" : "";
+    const detail = [factor.weight, factor.reason].filter(Boolean).join(" · ");
+    return `<div class="factor" title="${escapeHtml(detail)}">
+      <span class="factor-label">${escapeHtml(factor.label || factor.key)}</span>
+      <span class="factor-delta ${tone}">${delta > 0 ? "+" : ""}${delta}</span>
+      <span class="factor-track">${side ? `<i class="${side}" style="width:${width.toFixed(1)}%"></i>` : ""}</span>
+    </div>`;
+  }).join("");
+}
+
 function renderAnalysis(data) {
   state.current = data;
   $("#stockCode").textContent = data.symbol;
@@ -210,6 +235,7 @@ function renderAnalysis(data) {
   $("#resistanceLevel").textContent = formatNumber(data.levels.resistance, "", data.price_precision);
   $("#riskLevel").textContent = formatNumber(data.levels.risk_reference, "", data.price_precision);
   $("#reasons").innerHTML = data.reasons.map((reason) => `<div class="reason ${reason.type}">${escapeHtml(reason.text)}</div>`).join("");
+  renderFactors(data.factors);
   $("#methodology").textContent = data.methodology;
   renderMetrics(data.metrics, data.asset_type);
   $("#dashboard").classList.remove("hidden");

@@ -6,6 +6,7 @@ from walkforward import (
     BUCKETS,
     bucket_key,
     build_report,
+    excess_summary,
     factor_table,
     quantile_groups,
     consistency_check,
@@ -236,6 +237,51 @@ class ConsistencyTests(unittest.TestCase):
         self.assertEqual([row["symbol"] for row in rows], ["600001", "600002"])
         self.assertEqual(sum(row["n"] for row in rows), len(samples))
         self.assertGreater(rows[0]["score_mean"], rows[1]["score_mean"])
+
+
+class ExcessReturnTests(unittest.TestCase):
+    def setUp(self):
+        self.stock = make_history(300, drift=0.25, symbol="600000")
+        self.benchmark = make_history(300, drift=0.05, symbol="000300", asset_type="index")
+        self.samples = walk_forward(self.stock, benchmark=self.benchmark, stride=10)
+        self.order = [row["date"] for row in self.stock["rows"]]
+        self.stock_close = {row["date"]: row["close"] for row in self.stock["rows"]}
+        self.bench_close = {row["date"]: row["close"] for row in self.benchmark["rows"]}
+
+    def test_excess_is_stock_minus_benchmark_over_same_dates(self):
+        sample = self.samples[5]
+        index = self.order.index(sample["date"])
+        for horizon in (5, 20, 60):
+            stock_return = (self.stock_close[self.order[index + horizon]] / self.stock_close[sample["date"]] - 1) * 100
+            bench_return = (self.bench_close[self.order[index + horizon]] / self.bench_close[sample["date"]] - 1) * 100
+            forward = sample["forward"][str(horizon)]
+            self.assertAlmostEqual(forward["benchmark"], bench_return, places=6)
+            self.assertAlmostEqual(forward["excess"], stock_return - bench_return, places=6)
+
+    def test_excess_summary_and_report_rendering(self):
+        summary = excess_summary(self.samples, (5, 20, 60), self.benchmark)
+        self.assertTrue(summary["available"])
+        self.assertEqual(summary["benchmark"]["symbol"], "000300")
+        self.assertIsInstance(summary["ic"]["20"]["ic"], float)
+
+        report = build_report(
+            [self.stock],
+            self.samples,
+            days=300,
+            stride=10,
+            failures=[],
+            benchmark=self.benchmark,
+        )
+        self.assertTrue(report["excess"]["available"])
+        self.assertIn("超额收益验证", render_markdown(report))
+        self.assertIn("超额收益（相对", render_html(report))
+        self.assertIn("超额 edge", render_markdown(report))
+
+    def test_report_without_benchmark_still_renders(self):
+        samples = walk_forward(self.stock, stride=10)
+        report = build_report([self.stock], samples, days=300, stride=10, failures=[])
+        self.assertFalse(report["excess"]["available"])
+        self.assertNotIn("超额收益验证", render_markdown(report))
 
 
 class RenderTests(unittest.TestCase):

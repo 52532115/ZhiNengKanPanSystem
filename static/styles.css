@@ -124,6 +124,21 @@ main { width: min(1180px, calc(100% - 40px)); margin: auto; }
 .reason { position: relative; padding: 12px 0 12px 25px; border-top: 1px solid #e5e8e3; color: #526158; font-size: 12px; line-height: 1.55; }
 .reason::before { content: ""; position: absolute; left: 2px; top: 18px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
 .reason.positive::before { background: var(--green); } .reason.negative::before { background: var(--red); }
+.factor-block { margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e8e3; }
+.factor-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.factor-head span { color: var(--ink); font-size: 12px; font-weight: 700; }
+.factor-head small { color: var(--muted); font-size: 10px; }
+.factors { display: grid; gap: 9px; margin-top: 12px; }
+.factor { display: grid; grid-template-columns: 1fr auto; gap: 5px 8px; align-items: center; }
+.factor-label { color: #526158; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.factor-delta { font: 650 11px ui-monospace, monospace; }
+.factor-delta.positive { color: var(--green); } .factor-delta.negative { color: var(--red); } .factor-delta.warning { color: var(--amber); }
+.factor-delta.neutral { color: var(--muted); }
+.factor-track { position: relative; grid-column: 1 / -1; height: 5px; border-radius: 3px; background: #eef1ec; overflow: hidden; }
+.factor-track::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #d7ddd5; }
+.factor-track i { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.factor-track i.pos { left: 50%; background: var(--green); }
+.factor-track i.neg { right: 50%; background: var(--red); }
 .metrics-card { margin-top: 16px; }
 .method { max-width: 520px; color: var(--muted); text-align: right; font-size: 11px; line-height: 1.5; }
 .metrics { display: grid; grid-template-columns: repeat(8,1fr); margin-top: 23px; }

@@ -27,15 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
-from analyzer import (
-    analyze,
-    annualized_volatility,
-    ema,
-    max_drawdown,
-    pct_return,
-    rsi,
-    sma,
-)
+from analyzer import FACTOR_META, analyze, max_drawdown, score_factors
 from market_data import MarketDataClient, MarketDataError
 
 ROOT = Path(__file__).resolve().parent
@@ -64,8 +56,8 @@ DEFAULT_SYMBOLS = ("600519", "300750", "601318", "000858", "510300", "588000", "
 # --------------------------------------------------------------------------- #
 
 
-def _cache_path(symbol: str, days: int) -> Path:
-    return CACHE_DIR / f"{symbol}_{days}.json"
+def _cache_path(symbol: str, days: int, *, index: bool = False) -> Path:
+    return CACHE_DIR / f"{symbol}{'_index' if index else ''}_{days}.json"
 
 
 def load_history(
@@ -75,18 +67,44 @@ def load_history(
     *,
     refresh: bool = False,
     offline: bool = False,
+    index: bool = False,
 ) -> dict[str, Any]:
-    path = _cache_path(symbol, days)
+    path = _cache_path(symbol, days, index=index)
     if path.is_file() and not refresh:
         with path.open("r", encoding="utf-8") as handle:
             return json.load(handle)
     if offline:
         raise MarketDataError(f"{symbol} 没有本地缓存（{path}），无法离线运行")
-    history = client.history(symbol, days)
+    history = client.history(symbol, days, index=index)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
         json.dump(history, handle, ensure_ascii=False)
     return history
+
+
+def load_benchmark(
+    days: int,
+    *,
+    symbol: str = "000300",
+    refresh: bool = False,
+    offline: bool = False,
+) -> dict[str, Any] | None:
+    """加载超额收益基准（默认沪深300）。
+
+    基准只是增强口径，取不到时返回 None，让 walk-forward 继续按绝对收益跑完，
+    而不是让整份报告失败。
+    """
+    try:
+        return load_history(
+            MarketDataClient(),
+            symbol,
+            days,
+            refresh=refresh,
+            offline=offline,
+            index=True,
+        )
+    except (MarketDataError, ValueError):
+        return None
 
 
 def load_all(
@@ -118,95 +136,20 @@ def load_all(
 
 
 # --------------------------------------------------------------------------- #
-# 影子分解：复刻 analyze() 的九类规则，用于单因子归因
+# 单因子拆解：直接复用 analyzer.score_factors，不再维护影子实现
 # --------------------------------------------------------------------------- #
 #
-# analyze() 只能给出总分和 reasons 文案，无法直接拿到每个条件的方向与幅度。
-# 这里用同一批 analyzer 指标函数独立复刻一遍，并在每个评估点上断言总分与
-# analyze() 完全一致；一旦线上权重被改动，断言会立刻失败，提醒同步这里。
-#
-# weight 仅用于报告展示（当前正/负向幅度），不参与任何计算。
+# 早期这里独立复刻过一遍九类规则，并在每个评估点断言与 analyze() 一致。
+# 现在评分只有 analyzer.score_factors 一个事实来源，复刻逻辑已删除；
+# 保留 score_breakdown 作为报告层的适配器（返回 key -> delta）。
 
-FACTOR_LABELS: dict[str, tuple[str, str]] = {
-    "trend": ("价格 vs MA20", "+9 / −9"),
-    "align": ("MA20 vs MA60", "+9 / −7"),
-    "long": ("价格 vs MA120", "+6 / −6"),
-    "macd": ("MACD 柱与斜率", "+8 / −7"),
-    "rsi": ("RSI 区间", "+7 / −6 / −4"),
-    "ret20": ("近 20 日涨幅", "+5 / −6 / −3"),
-    "volume": ("量比 + 当日涨跌", "+4 / −5"),
-    "volatility": ("年化波动率", "+4 / −8"),
-    "drawdown": ("近 120 日回撤", "−6"),
-}
+FACTOR_LABELS: dict[str, tuple[str, str]] = FACTOR_META
 
 
 def score_breakdown(history: dict[str, Any]) -> tuple[int, dict[str, int]]:
-    rows = history["rows"]
-    closes = [row["close"] for row in rows]
-    volumes = [row["volume"] for row in rows]
+    score, factors = score_factors(history)
+    return score, {factor["key"]: factor["delta"] for factor in factors}
 
-    ma20 = sma(closes, 20)
-    ma60 = sma(closes, 60)
-    ma120 = sma(closes, 120)
-    rsi14 = rsi(closes)
-    dif = [fast - slow for fast, slow in zip(ema(closes, 12), ema(closes, 26))]
-    dea = ema(dif, 9)
-    histogram = [(d - e) * 2 for d, e in zip(dif, dea)]
-
-    close = closes[-1]
-    current_rsi = rsi14[-1] or 50.0
-    ret20 = pct_return(closes, 20) or 0.0
-    volatility = annualized_volatility(closes)
-    drawdown = max_drawdown(closes)
-    volume_ma20 = sum(volumes[-20:]) / min(20, len(volumes))
-    volume_ratio = volumes[-1] / volume_ma20 if volume_ma20 else 1.0
-
-    parts: dict[str, int] = {}
-
-    parts["trend"] = 9 if (ma20[-1] and close > ma20[-1]) else -9
-    parts["align"] = 9 if (ma20[-1] and ma60[-1] and ma20[-1] > ma60[-1]) else -7
-    parts["long"] = 0
-    if ma120[-1] is not None:
-        parts["long"] = 6 if close > ma120[-1] else -6
-
-    parts["macd"] = 0
-    if histogram[-1] > 0 and dif[-1] > dif[-2]:
-        parts["macd"] = 8
-    elif histogram[-1] < 0:
-        parts["macd"] = -7
-
-    parts["rsi"] = 0
-    if 48 <= current_rsi <= 68:
-        parts["rsi"] = 7
-    elif current_rsi > 75:
-        parts["rsi"] = -6
-    elif current_rsi < 35:
-        parts["rsi"] = -4
-
-    parts["ret20"] = 0
-    if 0 < ret20 < 15:
-        parts["ret20"] = 5
-    elif ret20 <= -10:
-        parts["ret20"] = -6
-    elif ret20 > 25:
-        parts["ret20"] = -3
-
-    parts["volume"] = 0
-    if volume_ratio >= 1.3 and rows[-1]["pct_change"] > 0:
-        parts["volume"] = 4
-    elif volume_ratio >= 1.5 and rows[-1]["pct_change"] < 0:
-        parts["volume"] = -5
-
-    parts["volatility"] = 0
-    if volatility > 55:
-        parts["volatility"] = -8
-    elif volatility < 28:
-        parts["volatility"] = 4
-
-    parts["drawdown"] = -6 if drawdown < -25 else 0
-
-    total = 50 + sum(parts.values())
-    return max(0, min(100, round(total))), parts
 
 
 # --------------------------------------------------------------------------- #
@@ -231,6 +174,7 @@ def _percentile(values: list[float], quantile: float) -> float | None:
 def walk_forward(
     history: dict[str, Any],
     *,
+    benchmark: dict[str, Any] | None = None,
     horizons: tuple[int, ...] = HORIZONS,
     stride: int = 1,
     warmup: int = WARMUP,
@@ -238,10 +182,16 @@ def walk_forward(
     """逐个历史交易日打分，并附上事后的未来收益标签。
 
     第 t 个评估点的入参只有 ``rows[:t+1]``；未来收益由完整序列在外部拼接，
-    不会进入 analyze()。
+    不会进入 analyze()。传入 ``benchmark`` 时，额外按同一批日期计算基准收益
+    与超额收益，用于剥离 beta 和普涨。
     """
     rows = history["rows"]
     closes = [row["close"] for row in rows]
+    bench_closes = {
+        row["date"]: row["close"]
+        for row in (benchmark or {}).get("rows", [])
+        if row.get("close")
+    }
     span = max(horizons)
     meta = {
         "symbol": history["symbol"],
@@ -254,30 +204,35 @@ def walk_forward(
     for index in range(warmup - 1, len(rows) - span):
         prefix = {**meta, "rows": rows[: index + 1]}
         result = analyze(prefix)
-        shadow_score, parts = score_breakdown(prefix)
-        if shadow_score != result["score"]:
-            raise RuntimeError(
-                "影子分解与 analyze() 评分不一致，说明评分规则已改动，"
-                f"请同步 FACTOR 复刻逻辑：{meta['symbol']} {rows[index]['date']} "
-                f"analyze={result['score']} shadow={shadow_score} parts={parts}"
-            )
+        parts = {factor["key"]: factor["delta"] for factor in result["factors"]}
         if (index - (warmup - 1)) % stride:
             continue
 
         entry = closes[index]
-        forward: dict[str, dict[str, float]] = {}
+        entry_date = rows[index]["date"]
+        forward: dict[str, dict[str, float | None]] = {}
         for horizon in horizons:
             exit_price = closes[index + horizon]
+            exit_date = rows[index + horizon]["date"]
+            stock_return = (exit_price / entry - 1) * 100
+            benchmark_return = None
+            if bench_closes:
+                bench_entry = bench_closes.get(entry_date)
+                bench_exit = bench_closes.get(exit_date)
+                if bench_entry and bench_exit:
+                    benchmark_return = (bench_exit / bench_entry - 1) * 100
             window = closes[index : index + horizon + 1]
             forward[str(horizon)] = {
-                "return": (exit_price / entry - 1) * 100,
+                "return": stock_return,
                 "mdd": max_drawdown(window, horizon + 1),
+                "benchmark": benchmark_return,
+                "excess": stock_return - benchmark_return if benchmark_return is not None else None,
             }
         samples.append(
             {
                 "symbol": meta["symbol"],
                 "name": meta["name"],
-                "date": rows[index]["date"],
+                "date": entry_date,
                 "score": result["score"],
                 "view": result["view"],
                 "parts": parts,
@@ -299,9 +254,14 @@ def bucket_key(score: int) -> str:
     return "ge75" if score > 100 else "lt30"
 
 
-def _describe(returns: list[float], mdds: list[float], horizon: int) -> dict[str, Any]:
-    count = len(returns)
-    if not count:
+def _describe(
+    returns: list[float],
+    mdds: list[float],
+    horizon: int,
+    excess: list[float | None] | None = None,
+) -> dict[str, Any]:
+    clean_excess = [value for value in (excess or []) if value is not None]
+    if not returns:
         return {
             "n": 0,
             "independent_windows": 0,
@@ -314,20 +274,32 @@ def _describe(returns: list[float], mdds: list[float], horizon: int) -> dict[str
             "win_rate": None,
             "mdd_mean": None,
             "mdd_worst": None,
+            "excess_n": 0,
+            "excess_mean": None,
+            "excess_median": None,
+            "excess_win_rate": None,
         }
     return {
-        "n": count,
+        "n": len(returns),
         # 重叠窗口会让有效样本远小于名义样本，粗略折算成互不重叠的窗口数。
-        "independent_windows": max(1, round(count / max(horizon, 1))),
+        "independent_windows": max(1, round(len(returns) / max(horizon, 1))),
         "mean": round(statistics.fmean(returns), 2),
         "median": round(statistics.median(returns), 2),
         "p25": round(_percentile(returns, 0.25), 2),
         "p75": round(_percentile(returns, 0.75), 2),
         "worst": round(min(returns), 2),
         "best": round(max(returns), 2),
-        "win_rate": round(sum(1 for value in returns if value > 0) / count * 100, 1),
+        "win_rate": round(sum(1 for value in returns if value > 0) / len(returns) * 100, 1),
         "mdd_mean": round(statistics.fmean(mdds), 2) if mdds else None,
         "mdd_worst": round(min(mdds), 2) if mdds else None,
+        "excess_n": len(clean_excess),
+        "excess_mean": round(statistics.fmean(clean_excess), 2) if clean_excess else None,
+        "excess_median": round(statistics.median(clean_excess), 2) if clean_excess else None,
+        "excess_win_rate": (
+            round(sum(1 for value in clean_excess if value > 0) / len(clean_excess) * 100, 1)
+            if clean_excess
+            else None
+        ),
     }
 
 
@@ -359,21 +331,22 @@ def _pearson(left: list[float], right: list[float]) -> float | None:
     return cov / math.sqrt(var_l * var_r)
 
 
-def rank_ic(samples: list[dict[str, Any]], horizon: int) -> dict[str, Any]:
-    """评分与未来收益的 Spearman 秩相关；分数单调有效时 IC 应显著为正。
+def rank_ic(samples: list[dict[str, Any]], horizon: int, metric: str = "return") -> dict[str, Any]:
+    """评分与未来收益（或超额收益）的 Spearman 秩相关。
 
-    相邻评估点的收益窗口高度重叠，名义样本数会大幅高估自由度，因此 t 值用
-    "有效样本" = 名义样本 / 窗口长度 折算。这样得到的显著性更接近用
-    ``--stride`` 抽样复核时的结论。
+    分数单调有效时 IC 应显著为正。相邻评估点的收益窗口高度重叠，名义样本数会
+    大幅高估自由度，因此 t 值用 "有效样本" = 名义样本 / 窗口长度 折算。这样
+    得到的显著性更接近用 ``--stride`` 抽样复核时的结论。
     """
     pairs = [
-        (float(sample["score"]), sample["forward"][str(horizon)]["return"])
+        (float(sample["score"]), sample["forward"][str(horizon)].get(metric))
         for sample in samples
     ]
+    pairs = [(score, value) for score, value in pairs if value is not None]
     if len(pairs) < 10:
         return {"ic": None, "n": len(pairs), "n_effective": 0, "t": None, "significant": False}
     scores = _rank([pair[0] for pair in pairs])
-    returns = _rank([pair[1] for pair in pairs])
+    returns = _rank([float(pair[1]) for pair in pairs])
     ic = _pearson(scores, returns)
     n_effective = max(3, round(len(pairs) / max(horizon, 1)))
     if ic is None:
@@ -406,7 +379,8 @@ def summarize(samples: list[dict[str, Any]], horizons: tuple[int, ...]) -> dict[
         for horizon in horizons:
             returns = [m["forward"][str(horizon)]["return"] for m in members]
             mdds = [m["forward"][str(horizon)]["mdd"] for m in members]
-            row["horizons"][str(horizon)] = _describe(returns, mdds, horizon)
+            excess = [m["forward"][str(horizon)].get("excess") for m in members]
+            row["horizons"][str(horizon)] = _describe(returns, mdds, horizon, excess)
         bucket_rows.append(row)
 
     ic: dict[str, Any] = {str(horizon): rank_ic(samples, horizon) for horizon in horizons}
@@ -430,7 +404,84 @@ def summarize(samples: list[dict[str, Any]], horizons: tuple[int, ...]) -> dict[
     return {"buckets": bucket_rows, "ic": ic, "spread": spread}
 
 
-def factor_table(samples: list[dict[str, Any]], horizon: int = 20) -> list[dict[str, Any]]:
+def excess_summary(
+    samples: list[dict[str, Any]],
+    horizons: tuple[int, ...],
+    benchmark: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """分桶的超额收益（个股收益 − 同期基准收益），用于剥离 beta / 普涨。
+
+    绝对收益在单边行情里会把"所有分桶都涨"误读成"评分有效"，超额收益才是
+    评分自身排序能力的口径。基准缺失时 available=False，报告只展示绝对收益。
+    """
+    bucket_rows: list[dict[str, Any]] = []
+    for key, low, high, label, tone in BUCKETS:
+        members = [sample for sample in samples if bucket_key(sample["score"]) == key]
+        row: dict[str, Any] = {
+            "key": key,
+            "range": f"{low}–{high}",
+            "label": label,
+            "tone": tone,
+            "n": len(members),
+            "share": round(len(members) / len(samples) * 100, 1) if samples else 0.0,
+            "horizons": {},
+        }
+        for horizon in horizons:
+            values = [
+                member["forward"][str(horizon)].get("excess")
+                for member in members
+                if member["forward"][str(horizon)].get("excess") is not None
+            ]
+            row["horizons"][str(horizon)] = {
+                "n": len(values),
+                "mean": round(statistics.fmean(values), 2) if values else None,
+                "median": round(statistics.median(values), 2) if values else None,
+                "win_rate": (
+                    round(sum(1 for value in values if value > 0) / len(values) * 100, 1)
+                    if values
+                    else None
+                ),
+            }
+        bucket_rows.append(row)
+
+    ic = {str(horizon): rank_ic(samples, horizon, "excess") for horizon in horizons}
+    spread: dict[str, Any] = {}
+    for horizon in horizons:
+        means = [
+            row["horizons"][str(horizon)]["mean"]
+            for row in bucket_rows
+            if row["horizons"][str(horizon)]["n"]
+        ]
+        top = bucket_rows[-1]["horizons"][str(horizon)]["mean"]
+        bottom = bucket_rows[0]["horizons"][str(horizon)]["mean"]
+        spread[str(horizon)] = {
+            "top_minus_bottom": round(top - bottom, 2) if top is not None and bottom is not None else None,
+            "monotone_pairs": (
+                f"{sum(1 for a, b in zip(means, means[1:]) if b > a)}/{len(means) - 1}"
+                if len(means) > 1
+                else "0/0"
+            ),
+        }
+
+    available = benchmark is not None and any(
+        row["horizons"][str(horizon)]["n"] for row in bucket_rows for horizon in horizons
+    )
+    return {
+        "available": available,
+        "benchmark": (
+            {"symbol": benchmark["symbol"], "name": benchmark["name"]} if benchmark else None
+        ),
+        "buckets": bucket_rows,
+        "ic": ic,
+        "spread": spread,
+    }
+
+
+def factor_table(
+    samples: list[dict[str, Any]],
+    horizon: int = 20,
+    metric: str = "return",
+) -> list[dict[str, Any]]:
     """单因子边际贡献：因子触发时，未来收益比未触发好多少。
 
     edge = mean(收益 | 该因子加分) − mean(收益 | 该因子扣分)。
@@ -446,7 +497,9 @@ def factor_table(samples: list[dict[str, Any]], horizon: int = 20) -> list[dict[
         negative: list[float] = []
         neutral: list[float] = []
         for sample in samples:
-            value = sample["forward"][str(horizon)]["return"]
+            value = sample["forward"][str(horizon)].get(metric)
+            if value is None:
+                continue
             delta = sample["parts"].get(key, 0)
             if delta > 0:
                 positive.append(value)
@@ -607,10 +660,18 @@ def build_report(
     days: int,
     stride: int,
     failures: list[dict[str, str]],
+    benchmark: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     dates = sorted({sample["date"] for sample in samples})
     summary = summarize(samples, HORIZONS)
     symbol_rows = per_symbol_stats(samples, histories)
+    factors = factor_table(samples, 20)
+    excess_factors = {row["key"]: row for row in factor_table(samples, 20, "excess")}
+    for row in factors:
+        peer = excess_factors.get(row["key"], {})
+        row["excess_edge"] = peer.get("edge")
+        row["excess_basis"] = peer.get("basis", "—")
+        row["excess_verdict"] = peer.get("verdict", "样本不足")
     return {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "params": {
@@ -620,6 +681,7 @@ def build_report(
             "warmup": WARMUP,
             "horizons": list(HORIZONS),
             "score_base": 50,
+            "benchmark": benchmark["symbol"] if benchmark else None,
         },
         "coverage": {
             "symbols": len(histories),
@@ -632,10 +694,11 @@ def build_report(
         "buckets": summary["buckets"],
         "ic": summary["ic"],
         "spread": summary["spread"],
+        "excess": excess_summary(samples, HORIZONS, benchmark),
         "quantiles": quantile_groups(samples),
         "per_symbol_detail": symbol_rows,
         "consistency": consistency_check(symbol_rows, summary["ic"]["20"]["ic"]),
-        "factors": factor_table(samples, 20),
+        "factors": factors,
         "per_symbol": [
             {
                 "symbol": history["symbol"],
@@ -717,6 +780,36 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"- 未来 {horizon} 日：Q1 → Q5 = {' → '.join(series)}，首尾差 {_fmt(high - low, '%')}。"
             )
 
+    excess = report.get("excess") or {}
+    if excess.get("available"):
+        benchmark = excess["benchmark"]
+        lines += [
+            "",
+            f"## 超额收益验证（相对 {benchmark['name']}）",
+            "",
+            "| 评分分桶 | 样本 | 5 日超额 | 5 日胜率 | 20 日超额 | 20 日胜率 | 60 日超额 | 60 日胜率 |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for row in excess["buckets"]:
+            cells = [f"| {row['range']} | {row['n']} "]
+            for horizon in ("5", "20", "60"):
+                stat = row["horizons"][horizon]
+                cells.append(
+                    f"| {_fmt(stat['mean'], '%')} | {_fmt(stat['win_rate'], '%', 1, signed=False)} "
+                )
+            lines.append("".join(cells) + "|")
+
+        lines.append("")
+        for horizon in ("5", "20", "60"):
+            ic = excess["ic"][horizon]
+            spread = excess["spread"][horizon]
+            lines.append(
+                f"- 未来 {horizon} 日超额：Spearman IC = {_fmt(ic['ic'], '', 3)}"
+                f"（t = {ic['t']}，{'显著' if ic['significant'] else '不显著'}），"
+                f"最高桶 − 最低桶 = {_fmt(spread['top_minus_bottom'], '%')}，"
+                f"单调 {spread['monotone_pairs']}。"
+            )
+
     if report.get("per_symbol_detail"):
         consistency = report["consistency"]
         note = (
@@ -747,14 +840,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## 单因子边际贡献（未来 20 日）",
         "",
-        "| 因子 | 当前权重 | 加分样本 | 加分收益 | 扣分样本 | 扣分收益 | edge | 口径 | 结论 |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| 因子 | 当前权重 | 加分样本 | 加分收益 | 扣分样本 | 扣分收益 | edge | 超额 edge | 口径 | 结论 |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     for row in report["factors"]:
         lines.append(
             f"| {row['label']} | {row['weight']} | {row['n_positive']} | "
             f"{_fmt(row['return_positive'], '%')} | {row['n_negative']} | "
             f"{_fmt(row['return_negative'], '%')} | {_fmt(row['edge'], '%')} | "
+            f"{_fmt(row.get('excess_edge'), '%')} | "
             f"{row['basis']} | {row['verdict']} |"
         )
 
@@ -765,7 +859,8 @@ def render_markdown(report: dict[str, Any]) -> str:
 
     lines += [
         "",
-        "> 说明：未来收益为绝对收益，未剔除同期指数涨跌；以评估日收盘价为入场价，"
+        "> 说明：绝对收益未剔除同期指数涨跌；超额收益为个股收益减去同期基准收益，"
+        "更接近评分自身的排序能力。两者均以评估日收盘价为入场价，"
         "未计入次日开盘的执行偏差；相邻评估点的收益窗口高度重叠，"
         "IC 的 t 值按「名义样本 ÷ 窗口长度」折算出有效样本后再计算，胜率与均值只作方向性比较，"
         "不作为收益预测。",
@@ -814,6 +909,7 @@ def render_html(report: dict[str, Any]) -> str:
             f'<td class="num">{row["n_negative"]}</td>'
             f'{_cell(row["return_negative"], "%")}'
             f'{_cell(row["edge"], "%")}'
+            f'{_cell(row.get("excess_edge"), "%")}'
             f'<td class="wf-verdict">{row["verdict"]}{basis}</td>'
             "</tr>"
         )
@@ -828,6 +924,58 @@ def render_html(report: dict[str, Any]) -> str:
         quintile_item = (
             f'<li><b>五等分交叉验证：</b>Q1（最低分）至 Q5（最高分）的收益差为 {"，".join(gaps)}</li>'
         )
+
+    excess = report.get("excess") or {}
+    excess_html = ""
+    if excess.get("available"):
+        benchmark = excess["benchmark"]
+        ex_rows = []
+        for row in excess["buckets"]:
+            cells = [
+                f'<td class="wf-bucket"><strong>{row["range"]}</strong><span>{row["label"]}</span></td>',
+                f'<td class="num">{row["n"]}</td>',
+            ]
+            for horizon in ("5", "20", "60"):
+                stat = row["horizons"][horizon]
+                cells.append(_cell(stat["mean"], "%"))
+                cells.append(f'<td class="num">{_fmt(stat["win_rate"], "%", 1, signed=False)}</td>')
+            ex_rows.append("<tr>" + "".join(cells) + "</tr>")
+        ex_notes = []
+        for horizon in ("5", "20", "60"):
+            ic = excess["ic"][horizon]
+            spread = excess["spread"][horizon]
+            ex_notes.append(
+                f'<li><b>未来 {horizon} 日超额：</b>IC {_fmt(ic["ic"], "", 3)}'
+                f'（t={ic["t"]}，{"显著" if ic["significant"] else "不显著"}），'
+                f'最高桶 − 最低桶 {_fmt(spread["top_minus_bottom"], "%")}，'
+                f'单调 {spread["monotone_pairs"]}</li>'
+            )
+        excess_html = f"""<div class="wf-factor">
+  <h3>超额收益（相对 {benchmark['name']}）</h3>
+  <p class="wf-sub">个股收益减去同期基准收益，用于剥离 beta 和普涨；绝对收益分桶全部为正也可能只是行情好。</p>
+  <div class="wf-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2" scope="col">评分分桶</th>
+          <th rowspan="2" scope="col">样本</th>
+          <th colspan="2" scope="colgroup">未来 5 日</th>
+          <th colspan="2" scope="colgroup">未来 20 日</th>
+          <th colspan="2" scope="colgroup">未来 60 日</th>
+        </tr>
+        <tr>
+          <th scope="col">超额</th><th scope="col">胜率</th>
+          <th scope="col">超额</th><th scope="col">胜率</th>
+          <th scope="col">超额</th><th scope="col">胜率</th>
+        </tr>
+      </thead>
+      <tbody>
+        {''.join(ex_rows)}
+      </tbody>
+    </table>
+  </div>
+  <ul class="wf-notes">{''.join(ex_notes)}</ul>
+</div>"""
 
     symbol_rows = []
     for row in report.get("per_symbol_detail", []):
@@ -912,6 +1060,7 @@ def render_html(report: dict[str, Any]) -> str:
     {quintile_item}
   </ul>
   {warn_html}
+  {excess_html}
   <div class="wf-factor">
     <h3>分标的复核</h3>
     <p class="wf-sub">同一套评分放在不同品种上可能指向相反方向，这里逐只核对排序能力。</p>
@@ -941,7 +1090,7 @@ def render_html(report: dict[str, Any]) -> str:
             <th scope="col">因子</th><th scope="col">当前权重</th>
             <th scope="col">加分样本</th><th scope="col">加分收益</th>
             <th scope="col">扣分样本</th><th scope="col">扣分收益</th>
-            <th scope="col">edge</th><th scope="col">结论</th>
+            <th scope="col">edge</th><th scope="col">超额 edge</th><th scope="col">结论</th>
           </tr>
         </thead>
         <tbody>
@@ -951,8 +1100,8 @@ def render_html(report: dict[str, Any]) -> str:
     </div>
   </div>
   <p class="wf-note">回撤为该周期窗口内收盘价的最大回撤均值；胜率为未来收益大于 0 的比例。
-    收益为绝对收益，未剔除同期指数涨跌，以评估日收盘价为入场价；相邻评估点窗口重叠，
-    IC 的 t 值按有效样本折算，指标只用于方向性比较。
+    绝对收益未剔除同期指数涨跌，超额收益为个股收益减去同期基准收益，以评估日收盘价为入场价；
+    相邻评估点窗口重叠，IC 的 t 值按有效样本折算，指标只用于方向性比较。
     统计区间 {coverage['start_date']} 至 {coverage['end_date']}，生成于 {report['generated_at']}，预热 {params['warmup']} 根 K 线。</p>
 </section>
 """
@@ -1018,15 +1167,31 @@ def run(
     stride: int = 1,
     refresh: bool = False,
     offline: bool = False,
+    benchmark_symbol: str = "000300",
 ) -> dict[str, Any]:
     histories, failures = load_all(symbols, days, refresh=refresh, offline=offline)
     if not histories:
         raise MarketDataError("没有任何标的可用，请检查网络或先联网跑一次生成缓存")
+    benchmark = load_benchmark(
+        days,
+        symbol=benchmark_symbol,
+        refresh=refresh,
+        offline=offline,
+    )
+    if benchmark is None:
+        print("提示：未取得基准行情，超额收益口径留空，仅输出绝对收益。", file=sys.stderr)
     samples: list[dict[str, Any]] = []
     for history in histories:
-        samples.extend(walk_forward(history, stride=stride))
+        samples.extend(walk_forward(history, benchmark=benchmark, stride=stride))
     samples.sort(key=lambda sample: sample["date"])
-    return build_report(histories, samples, days=days, stride=stride, failures=failures)
+    return build_report(
+        histories,
+        samples,
+        days=days,
+        stride=stride,
+        failures=failures,
+        benchmark=benchmark,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1036,6 +1201,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--stride", type=int, default=1, help="评估步长，>1 可降低重叠样本")
     parser.add_argument("--refresh", action="store_true", help="忽略缓存重新拉取行情")
     parser.add_argument("--offline", action="store_true", help="只用本地缓存，不访问网络")
+    parser.add_argument("--benchmark", default="000300", help="超额收益基准代码，默认沪深300")
     parser.add_argument("--outdir", default=str(REPORT_DIR), help="报告输出目录")
     args = parser.parse_args(argv)
 
@@ -1047,6 +1213,7 @@ def main(argv: list[str] | None = None) -> int:
             stride=max(1, args.stride),
             refresh=args.refresh,
             offline=args.offline,
+            benchmark_symbol=args.benchmark,
         )
     except MarketDataError as exc:
         print(f"验证失败：{exc}", file=sys.stderr)
@@ -1061,6 +1228,12 @@ def main(argv: list[str] | None = None) -> int:
     for horizon in ("5", "20", "60"):
         ic = report["ic"][horizon]
         print(f"  未来 {horizon} 日 IC = {ic['ic']}（t={ic['t']}）")
+    excess = report.get("excess") or {}
+    if excess.get("available"):
+        print(f"  超额收益基准：{excess['benchmark']['name']}")
+        for horizon in ("5", "20", "60"):
+            ic = excess["ic"][horizon]
+            print(f"  未来 {horizon} 日超额 IC = {ic['ic']}（t={ic['t']}）")
     for key, path in paths.items():
         print(f"  {key}: {path}")
     return 0

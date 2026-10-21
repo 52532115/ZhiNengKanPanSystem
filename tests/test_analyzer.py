@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from analyzer import analyze, ema, max_drawdown, rsi, sma
+from analyzer import FACTOR_META, analyze, ema, max_drawdown, rsi, score_factors, sma
 
 
 def make_history(direction=1.0, count=260, symbol="600000", asset_type="stock"):
@@ -52,6 +52,18 @@ class IndicatorTests(unittest.TestCase):
         self.assertEqual(result["price_precision"], 3)
         self.assertIsNone(result["metrics"]["pe_ttm"])
         self.assertIn("底层指数估值", result["methodology"])
+
+    def test_score_factors_are_the_single_source_of_truth(self):
+        history = make_history(1.0)
+        score, factors = score_factors(history)
+        result = analyze(history)
+        self.assertEqual(score, result["score"])
+        self.assertEqual([factor["key"] for factor in factors], list(FACTOR_META))
+        self.assertEqual(50 + sum(factor["delta"] for factor in factors), score)
+        self.assertTrue(all(factor["label"] and factor["weight"] for factor in factors))
+        self.assertEqual(result["factors"], factors)
+        expected_reasons = [factor["reason"] for factor in factors if factor["reason"]][:7]
+        self.assertEqual([reason["text"] for reason in result["reasons"]], expected_reasons)
 
 
 if __name__ == "__main__":

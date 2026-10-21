@@ -58,6 +58,32 @@
   </ul>
   <p class="wf-warn">注意：合并样本的排序能力为正，但仅 3/8 只标的自身为正相关。这说明合并口径的优势主要来自品种间差异，不宜当作单只标的内的择时能力。</p>
   <div class="wf-factor">
+  <h3>超额收益（相对 沪深300）</h3>
+  <p class="wf-sub">个股收益减去同期基准收益，用于剥离 beta 和普涨；绝对收益分桶全部为正也可能只是行情好。</p>
+  <div class="wf-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2" scope="col">评分分桶</th>
+          <th rowspan="2" scope="col">样本</th>
+          <th colspan="2" scope="colgroup">未来 5 日</th>
+          <th colspan="2" scope="colgroup">未来 20 日</th>
+          <th colspan="2" scope="colgroup">未来 60 日</th>
+        </tr>
+        <tr>
+          <th scope="col">超额</th><th scope="col">胜率</th>
+          <th scope="col">超额</th><th scope="col">胜率</th>
+          <th scope="col">超额</th><th scope="col">胜率</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="wf-bucket"><strong>0–29</strong><span>高风险</span></td><td class="num">515</td><td class="num wf-down">-0.20%</td><td class="num">43.5%</td><td class="num wf-down">-0.20%</td><td class="num">45.2%</td><td class="num wf-up">+0.98%</td><td class="num">53.2%</td></tr><tr><td class="wf-bucket"><strong>30–44</strong><span>谨慎</span></td><td class="num">425</td><td class="num wf-down">-0.08%</td><td class="num">43.5%</td><td class="num wf-down">-0.13%</td><td class="num">47.1%</td><td class="num wf-up">+0.93%</td><td class="num">50.4%</td></tr><tr><td class="wf-bucket"><strong>45–59</strong><span>中性观察</span></td><td class="num">489</td><td class="num wf-up">+0.07%</td><td class="num">48.3%</td><td class="num wf-down">-0.65%</td><td class="num">49.1%</td><td class="num wf-down">-0.29%</td><td class="num">51.9%</td></tr><tr><td class="wf-bucket"><strong>60–74</strong><span>谨慎偏多</span></td><td class="num">591</td><td class="num wf-down">-0.10%</td><td class="num">45.9%</td><td class="num wf-up">+0.04%</td><td class="num">49.2%</td><td class="num wf-up">+0.40%</td><td class="num">54.7%</td></tr><tr><td class="wf-bucket"><strong>75–100</strong><span>偏积极</span></td><td class="num">1276</td><td class="num wf-up">+0.28%</td><td class="num">54.5%</td><td class="num wf-up">+1.16%</td><td class="num">58.9%</td><td class="num wf-up">+1.81%</td><td class="num">59.3%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="wf-notes"><li><b>未来 5 日超额：</b>IC +0.074（t=1.91，不显著），最高桶 − 最低桶 +0.48%，单调 3/4</li><li><b>未来 20 日超额：</b>IC +0.096（t=1.23，不显著），最高桶 − 最低桶 +1.36%，单调 3/4</li><li><b>未来 60 日超额：</b>IC +0.037（t=0.27，不显著），最高桶 − 最低桶 +0.83%，单调 2/4</li></ul>
+</div>
+  <div class="wf-factor">
     <h3>分标的复核</h3>
     <p class="wf-sub">同一套评分放在不同品种上可能指向相反方向，这里逐只核对排序能力。</p>
     <div class="wf-scroll">
@@ -86,17 +112,17 @@
             <th scope="col">因子</th><th scope="col">当前权重</th>
             <th scope="col">加分样本</th><th scope="col">加分收益</th>
             <th scope="col">扣分样本</th><th scope="col">扣分收益</th>
-            <th scope="col">edge</th><th scope="col">结论</th>
+            <th scope="col">edge</th><th scope="col">超额 edge</th><th scope="col">结论</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>年化波动率</td><td class="num wf-mono">+4 / −8</td><td class="num">1904</td><td class="num wf-up">+1.77%</td><td class="num">149</td><td class="num wf-down">-3.60%</td><td class="num wf-up">+5.37%</td><td class="wf-verdict">方向有效</td></tr><tr><td>近 120 日回撤</td><td class="num wf-mono">−6</td><td class="num">0</td><td class="num">—</td><td class="num">324</td><td class="num wf-down">-0.61%</td><td class="num wf-up">+1.95%</td><td class="wf-verdict">方向有效<span class="wf-mono">未触发 vs 扣分</span></td></tr><tr><td>MACD 柱与斜率</td><td class="num wf-mono">+8 / −7</td><td class="num">1248</td><td class="num wf-up">+1.91%</td><td class="num">1739</td><td class="num wf-up">+0.52%</td><td class="num wf-up">+1.39%</td><td class="wf-verdict">方向有效</td></tr><tr><td>RSI 区间</td><td class="num wf-mono">+7 / −6 / −4</td><td class="num">1698</td><td class="num wf-up">+0.88%</td><td class="num">413</td><td class="num wf-up">+2.26%</td><td class="num wf-down">-1.38%</td><td class="wf-verdict">方向相反</td></tr><tr><td>价格 vs MA20</td><td class="num wf-mono">+9 / −9</td><td class="num">1727</td><td class="num wf-up">+1.57%</td><td class="num">1569</td><td class="num wf-up">+0.69%</td><td class="num wf-up">+0.88%</td><td class="wf-verdict">弱有效</td></tr><tr><td>MA20 vs MA60</td><td class="num wf-mono">+9 / −7</td><td class="num">1943</td><td class="num wf-up">+0.96%</td><td class="num">1353</td><td class="num wf-up">+1.42%</td><td class="num wf-down">-0.47%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>量比 + 当日涨跌</td><td class="num wf-mono">+4 / −5</td><td class="num">334</td><td class="num wf-up">+1.52%</td><td class="num">118</td><td class="num wf-up">+1.83%</td><td class="num wf-down">-0.30%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>近 20 日涨幅</td><td class="num wf-mono">+5 / −6 / −3</td><td class="num">1580</td><td class="num wf-up">+1.70%</td><td class="num">194</td><td class="num wf-up">+1.96%</td><td class="num wf-down">-0.26%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>价格 vs MA120</td><td class="num wf-mono">+6 / −6</td><td class="num">2214</td><td class="num wf-up">+1.20%</td><td class="num">1082</td><td class="num wf-up">+1.04%</td><td class="num wf-up">+0.16%</td><td class="wf-verdict">弱有效</td></tr>
+          <tr><td>年化波动率</td><td class="num wf-mono">+4 / −8</td><td class="num">1904</td><td class="num wf-up">+1.77%</td><td class="num">149</td><td class="num wf-down">-3.60%</td><td class="num wf-up">+5.37%</td><td class="num wf-up">+2.13%</td><td class="wf-verdict">方向有效</td></tr><tr><td>近 120 日回撤</td><td class="num wf-mono">−6</td><td class="num">0</td><td class="num">—</td><td class="num">324</td><td class="num wf-down">-0.61%</td><td class="num wf-up">+1.95%</td><td class="num wf-up">+0.40%</td><td class="wf-verdict">方向有效<span class="wf-mono">未触发 vs 扣分</span></td></tr><tr><td>MACD 柱与斜率</td><td class="num wf-mono">+8 / −7</td><td class="num">1248</td><td class="num wf-up">+1.91%</td><td class="num">1739</td><td class="num wf-up">+0.52%</td><td class="num wf-up">+1.39%</td><td class="num wf-up">+1.13%</td><td class="wf-verdict">方向有效</td></tr><tr><td>RSI 区间</td><td class="num wf-mono">+7 / −6 / −4</td><td class="num">1698</td><td class="num wf-up">+0.88%</td><td class="num">413</td><td class="num wf-up">+2.26%</td><td class="num wf-down">-1.38%</td><td class="num wf-down">-0.33%</td><td class="wf-verdict">方向相反</td></tr><tr><td>价格 vs MA20</td><td class="num wf-mono">+9 / −9</td><td class="num">1727</td><td class="num wf-up">+1.57%</td><td class="num">1569</td><td class="num wf-up">+0.69%</td><td class="num wf-up">+0.88%</td><td class="num wf-up">+0.86%</td><td class="wf-verdict">弱有效</td></tr><tr><td>MA20 vs MA60</td><td class="num wf-mono">+9 / −7</td><td class="num">1943</td><td class="num wf-up">+0.96%</td><td class="num">1353</td><td class="num wf-up">+1.42%</td><td class="num wf-down">-0.47%</td><td class="num wf-up">+0.08%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>量比 + 当日涨跌</td><td class="num wf-mono">+4 / −5</td><td class="num">334</td><td class="num wf-up">+1.52%</td><td class="num">118</td><td class="num wf-up">+1.83%</td><td class="num wf-down">-0.30%</td><td class="num wf-up">+0.61%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>近 20 日涨幅</td><td class="num wf-mono">+5 / −6 / −3</td><td class="num">1580</td><td class="num wf-up">+1.70%</td><td class="num">194</td><td class="num wf-up">+1.96%</td><td class="num wf-down">-0.26%</td><td class="num wf-up">+0.78%</td><td class="wf-verdict">接近噪声</td></tr><tr><td>价格 vs MA120</td><td class="num wf-mono">+6 / −6</td><td class="num">2214</td><td class="num wf-up">+1.20%</td><td class="num">1082</td><td class="num wf-up">+1.04%</td><td class="num wf-up">+0.16%</td><td class="num wf-up">+0.86%</td><td class="wf-verdict">弱有效</td></tr>
         </tbody>
       </table>
     </div>
   </div>
   <p class="wf-note">回撤为该周期窗口内收盘价的最大回撤均值；胜率为未来收益大于 0 的比例。
-    收益为绝对收益，未剔除同期指数涨跌，以评估日收盘价为入场价；相邻评估点窗口重叠，
-    IC 的 t 值按有效样本折算，指标只用于方向性比较。
-    统计区间 2024-11-07 至 2026-07-20，生成于 2026-10-20 17:16，预热 130 根 K 线。</p>
+    绝对收益未剔除同期指数涨跌，超额收益为个股收益减去同期基准收益，以评估日收盘价为入场价；
+    相邻评估点窗口重叠，IC 的 t 值按有效样本折算，指标只用于方向性比较。
+    统计区间 2024-11-07 至 2026-07-20，生成于 2026-10-21 10:51，预热 130 根 K 线。</p>
 </section>

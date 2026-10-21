@@ -71,6 +71,126 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
 
+# 九类评分规则的唯一事实来源：key -> (展示名, 权重说明)。
+# 前端的因子拆解和 walkforward 的单因子归因都从这里取标签，避免三处各写一套。
+FACTOR_META: dict[str, tuple[str, str]] = {
+    "trend": ("价格 vs MA20", "+9 / −9"),
+    "align": ("MA20 vs MA60", "+9 / −7"),
+    "long": ("价格 vs MA120", "+6 / −6"),
+    "macd": ("MACD 柱与斜率", "+8 / −7"),
+    "rsi": ("RSI 区间", "+7 / −6 / −4"),
+    "ret20": ("近 20 日涨幅", "+5 / −6 / −3"),
+    "volume": ("量比 + 当日涨跌", "+4 / −5"),
+    "volatility": ("年化波动率", "+4 / −8"),
+    "drawdown": ("近 120 日回撤", "−6"),
+}
+
+
+def score_factors(history: dict[str, Any]) -> tuple[int, list[dict[str, Any]]]:
+    """把评分拆成单因子贡献，返回 ``(总分, 因子列表)``。
+
+    总分 = 50 + Σdelta，与 ``analyze()`` 输出的 score 完全一致；
+    ``reason`` 非空的因子会进入前端“判断依据”，空值只参与打分。
+    """
+    rows = history["rows"]
+    closes = [row["close"] for row in rows]
+    volumes = [row["volume"] for row in rows]
+    ma20 = sma(closes, 20)
+    ma60 = sma(closes, 60)
+    ma120 = sma(closes, 120)
+    rsi14 = rsi(closes)
+    dif = [fast - slow for fast, slow in zip(ema(closes, 12), ema(closes, 26))]
+    dea = ema(dif, 9)
+    histogram = [(d - e) * 2 for d, e in zip(dif, dea)]
+
+    close = closes[-1]
+    current_rsi = rsi14[-1] or 50.0
+    ret20 = pct_return(closes, 20) or 0.0
+    volatility = annualized_volatility(closes)
+    drawdown = max_drawdown(closes)
+    volume_ma20 = sum(volumes[-20:]) / min(20, len(volumes))
+    volume_ratio = volumes[-1] / volume_ma20 if volume_ma20 else 1.0
+
+    factors: list[dict[str, Any]] = []
+
+    def record(key: str, delta: int, tone: str, reason: str | None = None) -> None:
+        label, weight = FACTOR_META[key]
+        factors.append(
+            {
+                "key": key,
+                "label": label,
+                "weight": weight,
+                "delta": delta,
+                "tone": tone,
+                "reason": reason,
+            }
+        )
+
+    if ma20[-1] and close > ma20[-1]:
+        record("trend", 9, "positive", "收盘价位于 20 日均线上方，短期趋势占优")
+    else:
+        record("trend", -9, "negative", "收盘价位于 20 日均线下方，短期趋势偏弱")
+
+    if ma20[-1] and ma60[-1] and ma20[-1] > ma60[-1]:
+        record("align", 9, "positive", "20 日均线高于 60 日均线，中期结构偏多")
+    else:
+        record("align", -7, "negative", "20 日均线未站上 60 日均线，中期结构仍需修复")
+
+    if ma120[-1] is None:
+        record("long", 0, "neutral")
+    elif close > ma120[-1]:
+        record("long", 6, "positive")
+    else:
+        record("long", -6, "negative")
+
+    if histogram[-1] > 0 and dif[-1] > dif[-2]:
+        record("macd", 8, "positive", "MACD 动能柱为正且继续改善")
+    elif histogram[-1] < 0:
+        record("macd", -7, "negative", "MACD 动能柱为负，反弹持续性需观察")
+    else:
+        record("macd", 0, "neutral")
+
+    if 48 <= current_rsi <= 68:
+        record("rsi", 7, "positive", f"RSI 为 {current_rsi:.1f}，动能健康且未明显过热")
+    elif current_rsi > 75:
+        record("rsi", -6, "warning", f"RSI 为 {current_rsi:.1f}，短线存在过热和回撤风险")
+    elif current_rsi < 35:
+        record("rsi", -4, "warning", f"RSI 为 {current_rsi:.1f}，处于弱势/超卖区间")
+    else:
+        record("rsi", 0, "neutral")
+
+    if 0 < ret20 < 15:
+        record("ret20", 5, "positive")
+    elif ret20 <= -10:
+        record("ret20", -6, "negative")
+    elif ret20 > 25:
+        record("ret20", -3, "warning", "近 20 日涨幅较大，不宜在加速段追高")
+    else:
+        record("ret20", 0, "neutral")
+
+    if volume_ratio >= 1.3 and rows[-1]["pct_change"] > 0:
+        record("volume", 4, "positive", f"上涨伴随放量，量比约 {volume_ratio:.2f}")
+    elif volume_ratio >= 1.5 and rows[-1]["pct_change"] < 0:
+        record("volume", -5, "negative", "下跌伴随明显放量，抛压风险上升")
+    else:
+        record("volume", 0, "neutral")
+
+    if volatility > 55:
+        record("volatility", -8, "warning", f"年化波动约 {volatility:.1f}%，风险较高")
+    elif volatility < 28:
+        record("volatility", 4, "positive")
+    else:
+        record("volatility", 0, "neutral")
+
+    if drawdown < -25:
+        record("drawdown", -6, "warning", f"近 120 日最大回撤约 {drawdown:.1f}%")
+    else:
+        record("drawdown", 0, "neutral")
+
+    total = 50 + sum(factor["delta"] for factor in factors)
+    return max(0, min(100, round(total))), factors
+
+
 def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dict[str, Any]:
     rows = history["rows"]
     asset_type = history.get("asset_type", "stock")
@@ -102,71 +222,12 @@ def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dic
     volume_ma5_series = sma(volumes, 5)
     volume_ma10_series = sma(volumes, 10)
 
-    score = 50
-    reasons: list[dict[str, str]] = []
-
-    if ma20[-1] and close > ma20[-1]:
-        score += 9
-        reasons.append({"type": "positive", "text": "收盘价位于 20 日均线上方，短期趋势占优"})
-    else:
-        score -= 9
-        reasons.append({"type": "negative", "text": "收盘价位于 20 日均线下方，短期趋势偏弱"})
-
-    if ma20[-1] and ma60[-1] and ma20[-1] > ma60[-1]:
-        score += 9
-        reasons.append({"type": "positive", "text": "20 日均线高于 60 日均线，中期结构偏多"})
-    else:
-        score -= 7
-        reasons.append({"type": "negative", "text": "20 日均线未站上 60 日均线，中期结构仍需修复"})
-
-    if ma120[-1] is not None:
-        if close > ma120[-1]:
-            score += 6
-        else:
-            score -= 6
-
-    if histogram[-1] > 0 and dif[-1] > dif[-2]:
-        score += 8
-        reasons.append({"type": "positive", "text": "MACD 动能柱为正且继续改善"})
-    elif histogram[-1] < 0:
-        score -= 7
-        reasons.append({"type": "negative", "text": "MACD 动能柱为负，反弹持续性需观察"})
-
-    if 48 <= current_rsi <= 68:
-        score += 7
-        reasons.append({"type": "positive", "text": f"RSI 为 {current_rsi:.1f}，动能健康且未明显过热"})
-    elif current_rsi > 75:
-        score -= 6
-        reasons.append({"type": "warning", "text": f"RSI 为 {current_rsi:.1f}，短线存在过热和回撤风险"})
-    elif current_rsi < 35:
-        score -= 4
-        reasons.append({"type": "warning", "text": f"RSI 为 {current_rsi:.1f}，处于弱势/超卖区间"})
-
-    if 0 < ret20 < 15:
-        score += 5
-    elif ret20 <= -10:
-        score -= 6
-    elif ret20 > 25:
-        score -= 3
-        reasons.append({"type": "warning", "text": "近 20 日涨幅较大，不宜在加速段追高"})
-
-    if volume_ratio >= 1.3 and rows[-1]["pct_change"] > 0:
-        score += 4
-        reasons.append({"type": "positive", "text": f"上涨伴随放量，量比约 {volume_ratio:.2f}"})
-    elif volume_ratio >= 1.5 and rows[-1]["pct_change"] < 0:
-        score -= 5
-        reasons.append({"type": "negative", "text": "下跌伴随明显放量，抛压风险上升"})
-
-    if volatility > 55:
-        score -= 8
-        reasons.append({"type": "warning", "text": f"年化波动约 {volatility:.1f}%，风险较高"})
-    elif volatility < 28:
-        score += 4
-    if drawdown < -25:
-        score -= 6
-        reasons.append({"type": "warning", "text": f"近 120 日最大回撤约 {drawdown:.1f}%"})
-
-    score = max(0, min(100, round(score)))
+    score, factors = score_factors(history)
+    reasons = [
+        {"type": factor["tone"], "text": factor["reason"]}
+        for factor in factors
+        if factor["reason"]
+    ]
     if score >= 75:
         view, tone = "偏积极", "positive"
         summary = "趋势与动能形成共振，但更适合等待回踩确认后分批关注。"
@@ -263,6 +324,7 @@ def analyze(history: dict[str, Any], quote: dict[str, Any] | None = None) -> dic
             "pb": None if is_fund else (quote or {}).get("pb"),
         },
         "reasons": reasons[:7],
+        "factors": factors,
         "chart": chart,
         "methodology": (
             "ETF 评分基于日线趋势、MACD、RSI、量价、波动率与最大回撤；不等同于底层指数估值。"
