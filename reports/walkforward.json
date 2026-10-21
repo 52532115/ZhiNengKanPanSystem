@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-21 11:22",
+  "generated_at": "2026-10-21 11:32",
   "params": {
     "symbols": [
       "600519",
@@ -564,6 +564,35 @@
       "60": {
         "top_minus_bottom": 1.52,
         "monotone_pairs": "2/4"
+      }
+    }
+  },
+  "cross_sectional": {
+    "min_symbols": 8,
+    "ic": {
+      "5": {
+        "ic": 0.083,
+        "n_dates": 412,
+        "n_effective": 82,
+        "t": 1.61,
+        "positive_rate": 56.3,
+        "significant": false
+      },
+      "20": {
+        "ic": 0.152,
+        "n_dates": 412,
+        "n_effective": 21,
+        "t": 1.58,
+        "positive_rate": 65.0,
+        "significant": false
+      },
+      "60": {
+        "ic": 0.055,
+        "n_dates": 412,
+        "n_effective": 7,
+        "t": 0.36,
+        "positive_rate": 55.8,
+        "significant": false
       }
     }
   },

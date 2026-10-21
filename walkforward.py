@@ -418,6 +418,59 @@ def rank_ic(samples: list[dict[str, Any]], horizon: int, metric: str = "return")
     }
 
 
+def cross_sectional_ic(
+    samples: list[dict[str, Any]],
+    horizon: int,
+    metric: str = "excess",
+    min_symbols: int = 8,
+) -> dict[str, Any]:
+    """每日在当日有评分的标的之间算 Spearman IC，再对日期求均值。
+
+    这是“选股能力”的口径：同一天里评分高的股票，未来收益是否也更高。
+    它和合并样本 IC 的区别在于，后者会把不同标的的评分中枢差异算进去。
+    t 值仍按窗口长度折算有效样本，避免重叠收益窗口高估显著性。
+    """
+    by_date: dict[str, list[tuple[float, float]]] = {}
+    for sample in samples:
+        value = sample["forward"][str(horizon)].get(metric)
+        if value is None:
+            continue
+        by_date.setdefault(sample["date"], []).append((float(sample["score"]), float(value)))
+
+    daily: list[float] = []
+    for pairs in by_date.values():
+        if len(pairs) < min_symbols:
+            continue
+        ic = _pearson(
+            _rank([pair[0] for pair in pairs]),
+            _rank([pair[1] for pair in pairs]),
+        )
+        if ic is not None:
+            daily.append(ic)
+
+    if len(daily) < 10:
+        return {
+            "ic": None,
+            "n_dates": len(daily),
+            "n_effective": 0,
+            "t": None,
+            "positive_rate": None,
+            "significant": False,
+        }
+    mean = statistics.fmean(daily)
+    deviation = statistics.stdev(daily) if len(daily) > 1 else 0.0
+    n_effective = max(3, round(len(daily) / max(horizon, 1)))
+    t_stat = mean / (deviation / math.sqrt(n_effective)) if deviation > 0 else None
+    return {
+        "ic": round(mean, 3),
+        "n_dates": len(daily),
+        "n_effective": n_effective,
+        "t": round(t_stat, 2) if t_stat is not None else None,
+        "positive_rate": round(sum(1 for value in daily if value > 0) / len(daily) * 100, 1),
+        "significant": t_stat is not None and abs(t_stat) >= 1.96,
+    }
+
+
 def summarize(samples: list[dict[str, Any]], horizons: tuple[int, ...]) -> dict[str, Any]:
     bucket_rows: list[dict[str, Any]] = []
     for key, low, high, label, tone in BUCKETS:
@@ -761,6 +814,12 @@ def build_report(
         "ic": summary["ic"],
         "spread": summary["spread"],
         "excess": excess_summary(samples, HORIZONS, benchmark),
+        "cross_sectional": {
+            "min_symbols": 8,
+            # 同一交易日所有标的减去相同的基准收益，不改变横截面排序，
+            # 因此绝对收益与超额收益的横截面 IC 等价，只保留一份。
+            "ic": {str(horizon): cross_sectional_ic(samples, horizon, "return") for horizon in HORIZONS},
+        },
         "quantiles": quantile_groups(samples),
         "per_symbol_detail": symbol_rows,
         "consistency": consistency_check(symbol_rows, summary["ic"]["20"]["ic"]),
@@ -875,6 +934,30 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"最高桶 − 最低桶 = {_fmt(spread['top_minus_bottom'], '%')}，"
                 f"单调 {spread['monotone_pairs']}。"
             )
+
+    cross = report.get("cross_sectional") or {}
+    if cross:
+        lines += [
+            "",
+            "## 横截面排序能力（每日在标的间排序）",
+            "",
+            "| 周期 | 平均 IC | t 值 | 正 IC 交易日 |",
+            "| --- | ---: | ---: | ---: |",
+        ]
+        for horizon in ("5", "20", "60"):
+            stat = cross["ic"][horizon]
+            if stat["ic"] is None:
+                lines.append(f"| {horizon} 日 | — | — | — |")
+            else:
+                lines.append(
+                    f"| {horizon} 日 | {_fmt(stat['ic'], '', 3)} | {stat['t']} | "
+                    f"{_fmt(stat['positive_rate'], '%', 1, signed=False)}（{stat['n_dates']} 天） |"
+                )
+        lines += [
+            "",
+            f"每日参与排序的标的数 ≥ {cross['min_symbols']}；t 值仍按窗口长度折算有效交易日。"
+            "同一交易日所有标的减去相同的基准收益，不改变横截面排序，因此绝对/超额口径一致。",
+        ]
 
     if report.get("per_symbol_detail"):
         consistency = report["consistency"]
@@ -1043,6 +1126,36 @@ def render_html(report: dict[str, Any]) -> str:
   <ul class="wf-notes">{''.join(ex_notes)}</ul>
 </div>"""
 
+    cross = report.get("cross_sectional") or {}
+    cross_html = ""
+    if cross:
+        cross_rows = []
+        for horizon in ("5", "20", "60"):
+            stat = cross["ic"][horizon]
+            if stat["ic"] is None:
+                cells = [f"<td>{horizon} 日</td>", '<td class="num">—</td>', '<td class="num">—</td>', '<td class="num">—</td>']
+            else:
+                cells = [
+                    f"<td>{horizon} 日</td>",
+                    f'<td class="num">{_fmt(stat["ic"], "", 3)}</td>',
+                    f'<td class="num">{stat["t"]}</td>',
+                    f'<td class="num">{_fmt(stat["positive_rate"], "%", 1, signed=False)}'
+                    f'<span class="wf-code">{stat["n_dates"]} 天</span></td>',
+                ]
+            cross_rows.append("<tr>" + "".join(cells) + "</tr>")
+        cross_html = f"""<div class="wf-factor">
+  <h3>横截面排序能力</h3>
+  <p class="wf-sub">每天只在当日有评分的标的之间排序，t 值按窗口长度折算有效交易日；同日基准收益相同，不改变排序，因此绝对/超额口径一致。</p>
+  <div class="wf-scroll">
+    <table>
+      <thead>
+        <tr><th scope="col">周期</th><th scope="col">平均 IC</th><th scope="col">t 值</th><th scope="col">正 IC 交易日</th></tr>
+      </thead>
+      <tbody>{''.join(cross_rows)}</tbody>
+    </table>
+  </div>
+</div>"""
+
     symbol_rows = []
     for row in report.get("per_symbol_detail", []):
         symbol_rows.append(
@@ -1127,6 +1240,7 @@ def render_html(report: dict[str, Any]) -> str:
   </ul>
   {warn_html}
   {excess_html}
+  {cross_html}
   <div class="wf-factor">
     <h3>分标的复核</h3>
     <p class="wf-sub">同一套评分放在不同品种上可能指向相反方向，这里逐只核对排序能力。</p>

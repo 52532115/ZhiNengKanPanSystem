@@ -7,6 +7,7 @@ from walkforward import (
     DEFAULT_SYMBOLS,
     bucket_key,
     build_report,
+    cross_sectional_ic,
     excess_summary,
     factor_table,
     load_universe,
@@ -315,6 +316,36 @@ class ExcessReturnTests(unittest.TestCase):
         self.assertNotIn("超额收益验证", render_markdown(report))
 
 
+class CrossSectionalTests(unittest.TestCase):
+    def build_samples(self, dates=60, symbols=10):
+        samples = []
+        for day in range(dates):
+            for index in range(symbols):
+                # 评分与未来收益同序，但加入按日变化的扰动，避免 IC 恒定。
+                value = index + ((day * 17 + index * 31) % 10) * 0.5
+                samples.append(
+                    {
+                        "date": f"D{day:03d}",
+                        "symbol": f"{index:06d}",
+                        "score": index,
+                        "forward": {"20": {"return": value, "excess": value, "mdd": 0.0}},
+                    }
+                )
+        return samples
+
+    def test_daily_ordering_is_detected(self):
+        stat = cross_sectional_ic(self.build_samples(), 20, "excess", min_symbols=8)
+        self.assertEqual(stat["n_dates"], 60)
+        self.assertGreater(stat["ic"], 0.5)
+        self.assertGreater(stat["positive_rate"], 80)
+        self.assertIsNotNone(stat["t"])
+
+    def test_too_few_symbols_per_day_returns_none(self):
+        stat = cross_sectional_ic(self.build_samples(symbols=5), 20, "excess", min_symbols=8)
+        self.assertIsNone(stat["ic"])
+        self.assertEqual(stat["n_dates"], 0)
+
+
 class RenderTests(unittest.TestCase):
     def test_render_smoke(self):
         history = make_history(280)
@@ -324,7 +355,9 @@ class RenderTests(unittest.TestCase):
         html = render_html(report)
         self.assertIn("评分分桶", markdown)
         self.assertIn("未来 20 日", markdown)
+        self.assertIn("横截面排序能力", markdown)
         self.assertIn("评分有效性验证", html)
+        self.assertIn("横截面排序能力", html)
         self.assertIn("wf-scroll", html)
         self.assertEqual(html.count("<tr>"), html.count("</tr>"))
         # 五档分桶必须全部出现在表里，包括零样本行。
