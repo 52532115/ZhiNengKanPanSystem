@@ -205,6 +205,7 @@ main { width: min(1180px, calc(100% - 40px)); margin: auto; }
 .watch-item strong { display: block; font-size: 13px; }.watch-item small { color: var(--muted); font: 10px ui-monospace,monospace; }
 .watch-item .remove { color: #9aa39d; font-size: 17px; }
 .empty-watch { color: var(--muted); font-size: 13px; padding: 18px 0; }
+.watch-limit { margin-top: 16px; padding: 9px 12px; border-left: 3px solid var(--amber); background: rgba(170,118,39,.09); color: #7a5418; font-size: 12px; line-height: 1.7; }
 .disclaimer { display: grid; grid-template-columns: 120px 1fr; gap: 22px; margin: 30px 0 55px; padding: 21px 24px; border-left: 3px solid var(--amber); background: #ebe7db; }
 .disclaimer strong { font-size: 13px; }.disclaimer p { margin: 0; color: #6e6b60; font-size: 11px; line-height: 1.8; }
 footer { display: flex; justify-content: space-between; padding: 22px max(28px,calc((100vw - 1180px)/2)); border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; letter-spacing: .08em; }

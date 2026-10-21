@@ -16,13 +16,17 @@ const COLORS = {
   rs: "#aa7627",
 };
 
+const MAX_WATCHLIST = 20;
+
 const state = {
   current: null,
   chart: null,
   rs: null,
   batch: null,
   watchlist: loadWatchlist(),
-  suggest: { items: [], active: -1, timer: null, cache: new Map() },
+  suggest: { items: [], active: -1, timer: null, seq: 0, cache: new Map() },
+  requestId: 0,
+  batchRequestId: 0,
 };
 
 function loadWatchlist() {
@@ -100,6 +104,7 @@ function initSearchSuggest() {
   const input = $("#symbolInput");
   const panel = $("#suggestPanel");
   const close = () => {
+    state.suggest.seq += 1;
     panel.classList.add("hidden");
     panel.innerHTML = "";
     state.suggest.active = -1;
@@ -134,8 +139,14 @@ function initSearchSuggest() {
     const value = input.value.trim();
     clearTimeout(state.suggest.timer);
     if (!value) { close(); return; }
+    const seq = ++state.suggest.seq;
     state.suggest.timer = setTimeout(async () => {
-      try { show(await fetchSuggest(value)); } catch { close(); }
+      try {
+        const items = await fetchSuggest(value);
+        // 输入框已变化、面板已关闭或已发起新查询时，旧联想结果直接丢弃。
+        if (seq !== state.suggest.seq || input.value.trim() !== value) return;
+        show(items);
+      } catch { close(); }
     }, 220);
   });
 
@@ -255,7 +266,19 @@ async function resolveSymbol(query) {
   return { symbol: best.symbol, label: best.name };
 }
 
-async function analyzeSymbol(query) {
+function syncUrl(symbol, push) {
+  const params = new URLSearchParams(location.search);
+  params.set("symbol", symbol);
+  const next = `${location.pathname}?${params.toString()}`;
+  const current = `${location.pathname}${location.search}`;
+  if (current === next) return;
+  if (push) history.pushState({ symbol }, "", next);
+  else history.replaceState({ symbol }, "", next);
+}
+
+async function analyzeSymbol(query, { pushHistory = true, scroll = true } = {}) {
+  // 每次分析递增序号：后发的请求先返回时，旧响应不能覆盖新结果。
+  const requestId = ++state.requestId;
   const text = String(query || "").trim();
   if (!text) { status("请输入股票代码、名称或拼音缩写，例如 600519、茅台、gzmt。", "error"); return; }
   let resolved;
@@ -265,18 +288,26 @@ async function analyzeSymbol(query) {
     status(`正在解析「${text}」…`);
     try {
       resolved = await resolveSymbol(text);
-    } catch (error) { status(error.message, "error"); return; }
+    } catch (error) {
+      if (requestId === state.requestId) status(error.message, "error");
+      return;
+    }
+    if (requestId !== state.requestId) return;
     if (!resolved) { status(`没有找到与「${text}」匹配的沪深 A 股或场内基金。`, "error"); return; }
   }
+  if (requestId !== state.requestId) return;
   status(`正在读取 ${resolved.symbol} 的行情并计算指标…`);
   $("#symbolInput").value = resolved.label;
   try {
     const data = await getJSON(`/api/analyze?symbol=${encodeURIComponent(resolved.symbol)}`);
+    if (requestId !== state.requestId) return;
     renderAnalysis(data);
     status("");
-    history.replaceState(null, "", `?symbol=${resolved.symbol}`);
-    $("#dashboard").scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (error) { status(error.message, "error"); }
+    syncUrl(data.symbol, pushHistory);
+    if (scroll) $("#dashboard").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (error) {
+    if (requestId === state.requestId) status(error.message, "error");
+  }
 }
 
 function formatVolume(value) {
@@ -656,20 +687,24 @@ function renderRS(data) {
   drawRSChart(data.series);
 }
 
-function refreshRS(symbol) {
-  getJSON(`/api/rs?symbol=${encodeURIComponent(symbol)}&days=120&benchmark=000300`)
-    .then(renderRS)
-    .catch((error) => {
-      state.rs = null;
-      $("#rsVerdict").textContent = "暂不可用";
-      $("#rsVerdict").className = "rs-verdict";
-      $("#rsStats").innerHTML = `<p class="rs-empty">${escapeHtml(error.message)}</p>`;
-      $("#rsNote").textContent = "";
-      const canvas = $("#rsChart");
-      const ctx = canvas.getContext("2d");
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
+async function refreshRS(symbol) {
+  const requestId = state.requestId;
+  try {
+    const data = await getJSON(`/api/rs?symbol=${encodeURIComponent(symbol)}&days=120&benchmark=000300`);
+    if (requestId !== state.requestId || state.current?.symbol !== symbol) return;
+    renderRS(data);
+  } catch (error) {
+    if (requestId !== state.requestId || state.current?.symbol !== symbol) return;
+    state.rs = null;
+    $("#rsVerdict").textContent = "暂不可用";
+    $("#rsVerdict").className = "rs-verdict";
+    $("#rsStats").innerHTML = `<p class="rs-empty">${escapeHtml(error.message)}</p>`;
+    $("#rsNote").textContent = "";
+    const canvas = $("#rsChart");
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 function drawRSChart(series) {
@@ -806,8 +841,10 @@ function saveWatchlist() {
 function updateWatchButton() {
   if (!state.current) return;
   const exists = state.watchlist.some((item) => item.symbol === state.current.symbol);
+  const full = state.watchlist.length >= MAX_WATCHLIST;
   const button = $("#watchButton");
-  button.textContent = exists ? "✓ 已在自选" : "＋ 加入自选";
+  button.textContent = exists ? "✓ 已在自选" : full ? `自选已满 ${MAX_WATCHLIST}` : "＋ 加入自选";
+  button.title = !exists && full ? `自选最多 ${MAX_WATCHLIST} 只，请先移除一只` : "";
   button.classList.toggle("active", exists);
 }
 
@@ -836,12 +873,16 @@ function renderWatchlist(items) {
     return;
   }
   const map = new Map((items || []).map((item) => [item.symbol, item]));
-  const rows = state.watchlist.slice(0, 20).map((entry) => ({ entry, item: map.get(entry.symbol) }));
+  const rows = state.watchlist.slice(0, MAX_WATCHLIST).map((entry) => ({ entry, item: map.get(entry.symbol) }));
+  const over = state.watchlist.length - MAX_WATCHLIST;
+  const limitNote = over > 0
+    ? `<div class="watch-limit">自选共 ${state.watchlist.length} 只，超过 ${MAX_WATCHLIST} 只上限；仅前 ${MAX_WATCHLIST} 只参与评分，请移除 ${over} 只。</div>`
+    : "";
   const rank = (row) => (row.item ? row.item.score : -1);
   const byScore = (a, b) => rank(b) - rank(a);
   const alerts = rows.filter((row) => row.item?.alert).sort(byScore);
   const others = rows.filter((row) => !row.item?.alert).sort(byScore);
-  let html = "";
+  let html = limitNote;
   if (alerts.length) {
     html += `<div class="watch-group-label">异动提示 <span>${alerts.length}</span></div>`;
     html += `<div class="watchlist">${alerts.map((row) => watchCardHtml(row.entry, row.item)).join("")}</div>`;
@@ -855,29 +896,35 @@ function renderWatchlist(items) {
 
 async function refreshWatchlist() {
   const button = $("#watchRefresh");
+  const batchId = ++state.batchRequestId;
   if (!state.watchlist.length) {
+    button.classList.remove("loading");
     renderWatchlist();
     $("#watchlistMeta").textContent = "保存在当前浏览器中";
     return;
   }
-  const symbols = state.watchlist.slice(0, 20).map((item) => item.symbol);
+  const symbols = state.watchlist.slice(0, MAX_WATCHLIST).map((item) => item.symbol);
   renderWatchlist(state.batch?.items);
   button.classList.add("loading");
   $("#watchlistMeta").textContent = "正在计算评分与异动…";
+  const over = state.watchlist.length - MAX_WATCHLIST;
+  const limitNote = over > 0 ? ` · 仅前 ${MAX_WATCHLIST} 只评分（超 ${over} 只）` : "";
   try {
     const data = await postJSON("/api/batch", { symbols });
+    if (batchId !== state.batchRequestId) return;
     state.batch = data;
     renderWatchlist(data.items);
     const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
     const failed = data.failed?.length ? ` · ${data.failed.length} 个失败` : "";
     const alertText = data.alert_count ? ` · ${data.alert_count} 个异动` : "";
-    $("#watchlistMeta").textContent = `${time} 更新 · 按评分排序${alertText}${failed}`;
+    $("#watchlistMeta").textContent = `${time} 更新 · 按评分排序${alertText}${failed}${limitNote}`;
   } catch (error) {
+    if (batchId !== state.batchRequestId) return;
     state.batch = null;
     renderWatchlist();
     $("#watchlistMeta").textContent = `评分刷新失败：${error.message}`;
   } finally {
-    button.classList.remove("loading");
+    if (batchId === state.batchRequestId) button.classList.remove("loading");
   }
 }
 
@@ -905,8 +952,15 @@ document.querySelectorAll("[data-symbol]").forEach((button) =>
 $("#watchButton").addEventListener("click", () => {
   if (!state.current) { status("请先分析一只股票或 ETF，再加入自选。", "error"); return; }
   const index = state.watchlist.findIndex((item) => item.symbol === state.current.symbol);
-  if (index >= 0) state.watchlist.splice(index, 1);
-  else state.watchlist.push({ symbol: state.current.symbol, name: state.current.name });
+  if (index >= 0) {
+    state.watchlist.splice(index, 1);
+  } else {
+    if (state.watchlist.length >= MAX_WATCHLIST) {
+      status(`自选最多 ${MAX_WATCHLIST} 只，请先移除一只后再添加。`, "error");
+      return;
+    }
+    state.watchlist.push({ symbol: state.current.symbol, name: state.current.name });
+  }
   saveWatchlist();
 });
 
@@ -945,5 +999,10 @@ renderWatchlist();
 loadMarket();
 if (state.watchlist.length) refreshWatchlist();
 
+window.addEventListener("popstate", () => {
+  const symbol = new URLSearchParams(location.search).get("symbol");
+  if (symbol) analyzeSymbol(symbol, { pushHistory: false, scroll: false });
+});
+
 const initialQuery = new URLSearchParams(location.search).get("symbol") || "600519";
-analyzeSymbol(initialQuery);
+analyzeSymbol(initialQuery, { pushHistory: false });
