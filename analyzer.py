@@ -20,16 +20,9 @@ from typing import Any
 import fields
 
 
-def sma(values: list[float], period: int) -> list[float | None]:
-    result: list[float | None] = [None] * len(values)
-    running = 0.0
-    for index, value in enumerate(values):
-        running += value
-        if index >= period:
-            running -= values[index - period]
-        if index >= period - 1:
-            result[index] = running / period
-    return result
+# ``sma`` 只在 stats 里有一份实现，这里重新导出以保持既有 import 路径
+# （xsec 与测试都写 ``from analyzer import sma``）。
+from stats import sma  # noqa: E402  （放在这里是为了紧邻原定义位置，便于阅读）
 
 
 def ema(values: list[float], period: int) -> list[float]:

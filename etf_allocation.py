@@ -41,6 +41,7 @@ from typing import Any, Callable, Sequence
 
 import costs
 import execution as ex
+import stats
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache" / "fields" / "etf"
@@ -159,22 +160,9 @@ def returns_of(closes: Sequence[float | None]) -> list[float]:
 # --------------------------------------------------------------------------- #
 
 
-def sma(values: Sequence[float | None], window: int) -> list[float | None]:
-    out: list[float | None] = [None] * len(values)
-    running = 0.0
-    count = 0
-    for index, value in enumerate(values):
-        if value is not None:
-            running += value
-            count += 1
-        if index >= window:
-            dropped = values[index - window]
-            if dropped is not None:
-                running -= dropped
-                count -= 1
-        if index >= window - 1 and count == window:
-            out[index] = running / window
-    return out
+# ``sma`` 的唯一实现在 stats（与 analyzer / factors / fields 共用）。
+# 保持模块级名字，因为既有调用点与测试都写 ``etf_allocation.sma``。
+from stats import sma  # noqa: E402
 
 
 def momentum(closes: Sequence[float | None], index: int, *, lookback: int = 252, skip: int = 21) -> float | None:
@@ -489,27 +477,13 @@ def sixty_forty_target(start: str | None = None) -> Callable[[str, list[str]], d
 
 
 def nav_metrics(nav: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    values = [float(point["nav"]) for point in nav]
-    if len(values) < 3:
-        return {}
-    years = (len(values) - 1) / 252
-    returns = [values[i] / values[i - 1] - 1 for i in range(1, len(values)) if values[i - 1] > 0]
-    total = values[-1] / values[0] - 1
-    cagr = (values[-1] / values[0]) ** (1 / years) - 1 if years > 0 else 0.0
-    vol = statistics.stdev(returns) * math.sqrt(252) if len(returns) > 1 else 0.0
-    peak, worst = values[0], 0.0
-    for value in values:
-        peak = max(peak, value)
-        worst = min(worst, value / peak - 1)
-    return {
-        "total_return": round(total * 100, 2),
-        "cagr": round(cagr * 100, 2),
-        "vol": round(vol * 100, 2),
-        "sharpe": round(cagr / vol, 3) if vol > 1e-9 else None,
-        "max_drawdown": round(worst * 100, 2),
-        "calmar": round(cagr / abs(worst), 3) if worst < -1e-9 else None,
-        "years": round(years, 2),
-    }
+    """净值指标；数学部分在 ``stats.nav_metrics``，这里只固定 ETF 侧的口径。
+
+    两处口径在这里钉死，避免与 ``xsec.metrics`` 又分叉：
+    - 年数按 ``(n-1)/252``（不传 ``calendar_len``）；
+    - 少于 3 个点不出指标（ETF 组合回测至少要有 3 根净值，否则年化没有意义）。
+    """
+    return stats.nav_metrics(nav, min_points=3)
 
 
 def summarize(result: dict[str, Any], calendar: Sequence[str], name: str) -> dict[str, Any]:

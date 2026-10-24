@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 import costs
+import stats
 from analyzer import DEFAULT_WEIGHTS, ema, score_factors, sma
 from market_data import MarketDataClient, MarketDataError
 from walkforward import (
@@ -397,28 +398,6 @@ def screen_features(
 # --------------------------------------------------------------------------- #
 
 
-def _solve(matrix: list[list[float]], vector: list[float]) -> list[float]:
-    size = len(vector)
-    aug = [row[:] + [vector[i]] for i, row in enumerate(matrix)]
-    for column in range(size):
-        pivot = max(range(column, size), key=lambda r: abs(aug[r][column]))
-        if abs(aug[pivot][column]) < 1e-12:
-            continue
-        aug[column], aug[pivot] = aug[pivot], aug[column]
-        divisor = aug[column][column]
-        for c in range(column, size + 1):
-            aug[column][c] /= divisor
-        for r in range(size):
-            if r == column:
-                continue
-            factor = aug[r][column]
-            if not factor:
-                continue
-            for c in range(column, size + 1):
-                aug[r][c] -= factor * aug[column][c]
-    return [aug[i][size] for i in range(size)]
-
-
 def fit_rank_model(
     records: Sequence[dict[str, Any]],
     features: Sequence[str],
@@ -452,7 +431,7 @@ def fit_rank_model(
         raise ValueError("训练样本不足，无法拟合")
     for i in range(1, columns):
         xtx[i][i] += ridge
-    coefficients = _solve(xtx, xty)
+    coefficients = stats.solve(xtx, xty)
     return {
         "features": list(features),
         "intercept": coefficients[0],
@@ -644,31 +623,27 @@ def simulate(
 
 
 def metrics(result: dict[str, Any], calendar_len: int) -> dict[str, Any]:
+    """净值指标。收益/风险部分来自 ``stats.nav_metrics``，这里只补组合层字段。
+
+    两个**故意保留**的历史差异（都在本函数里显式写死，不散到别处）：
+    - 年数用 ``calendar_len/252``：这里的 nav 可能短于日历（停牌、现金段）；
+    - Sharpe 保留 2 位小数：既有报告 JSON 是 2 位，改 3 位会让所有历史对比失效。
+    键名 ``annual_return`` / ``volatility`` 同样是为了不破坏既有报告。
+    """
     nav = [point["nav"] for point in result["nav"]]
     if len(nav) < 2:
         return {}
+    base = stats.nav_metrics(nav, calendar_len=calendar_len, sharpe_digits=2)
     years = max(calendar_len / 252, 1e-9)
-    total = nav[-1] / nav[0] - 1
-    annual = (nav[-1] / nav[0]) ** (1 / years) - 1
-    returns = [nav[i] / nav[i - 1] - 1 for i in range(1, len(nav)) if nav[i - 1]]
-    volatility = statistics.stdev(returns) * math.sqrt(252) if len(returns) > 1 else 0.0
-    peak = 0.0
-    drawdown = 0.0
-    for value in nav:
-        peak = max(peak, value)
-        if peak:
-            drawdown = min(drawdown, value / peak - 1)
     average_nav = statistics.fmean(nav)
     return {
-        "total_return": round(total * 100, 2),
-        "annual_return": round(annual * 100, 2),
-        "max_drawdown": round(drawdown * 100, 2),
-        "volatility": round(volatility * 100, 2),
-        "sharpe": round(annual / volatility, 2) if volatility else None,
-        "annual_turnover": round(result["total_turnover"] / years * 100, 1),
-        "cost_drag_bps": round(
-            result["total_cost"] / average_nav / years * 10000, 1
-        ),
+        "total_return": base["total_return"],
+        "annual_return": base["cagr"],
+        "max_drawdown": base["max_drawdown"],
+        "volatility": base["vol"],
+        "sharpe": base["sharpe"],
+        "annual_turnover": stats.annualized_turnover(result["total_turnover"], years),
+        "cost_drag_bps": stats.cost_drag_bps(result["total_cost"], average_nav, years),
         "rebalances": len(result["rebalances"]),
         "capped_ratio": round(
             sum(1 for item in result["rebalances"] if item["capped"])

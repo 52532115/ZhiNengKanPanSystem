@@ -37,6 +37,7 @@ import costs
 import evalkit as ek
 import factors as fa
 import fields as fd
+import stats
 import protocol as pr
 from xsec import _rank_pct
 
@@ -113,7 +114,7 @@ def build_records(bundle: dict[str, Any]) -> list[dict[str, Any]]:
         existing = fa.existing(history, bench)
         caps = fa.float_cap(history)
         closings = [float(row["close"]) for row in history["rows"]]
-        ma60 = fa._sma(closings, 60)
+        ma60 = stats.sma(closings, 60)
         fwd = forward_returns(history, HORIZON)
         fwd5 = forward_returns(history, REVERSAL_HORIZON)
         last_cap: float | None = None
@@ -308,20 +309,12 @@ def daily_ic(
     label: str = "label",
     dates: Sequence[str] | None = None,
 ) -> list[float]:
-    output: list[float] = []
-    for date in (dates if dates is not None else sorted(groups)):
-        rows = groups.get(date) or []
-        pairs = [
-            (row.get(key), row.get(label))
-            for row in rows
-            if row.get(key) is not None and row.get(label) is not None
-        ]
-        if len(pairs) < MIN_XSEC:
-            continue
-        ic = ek.spearman([p[0] for p in pairs], [p[1] for p in pairs])
-        if ic is not None:
-            output.append(ic)
-    return output
+    """逐日横截面 IC；实现与门槛都在 ``stats.daily_ic``，这里只做行→配对的装配。"""
+    return stats.daily_ic(
+        stats.pairs_from_groups(groups, key, label),
+        min_xsec=MIN_XSEC,
+        dates=dates,
+    )
 
 
 def stat(series: Sequence[float], *, iters: int = ITERS) -> dict[str, Any]:

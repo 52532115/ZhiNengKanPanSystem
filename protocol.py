@@ -42,6 +42,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 import evalkit as ek
+import stats
 import execution as ex
 import style as st
 import xsec
@@ -264,7 +265,11 @@ def daily_ic_series(
     actual_key: str = "fwd",
     min_xsec: int = MIN_XSEC,
 ) -> list[float]:
-    """逐日横截面 Spearman IC 序列（缺值日跳过）。"""
+    """逐日横截面 Spearman IC 序列（缺值日跳过）。
+
+    ``score_map`` 既可传函数也可传 ``{(date, symbol): score}``——这两种形态是历史
+    遗留，保留是为了不动几十处调用点；配对与门槛统一交给 ``stats.daily_ic``。
+    """
     by_date: dict[str, list[tuple[float, float]]] = {}
     for record in records:
         value = record.get(actual_key)
@@ -278,15 +283,7 @@ def daily_ic_series(
         if score is None:
             continue
         by_date.setdefault(record["date"], []).append((float(score), float(value)))
-    series: list[float] = []
-    for date in sorted(by_date):
-        pairs = by_date[date]
-        if len(pairs) < min_xsec:
-            continue
-        ic = ek.spearman([p[0] for p in pairs], [p[1] for p in pairs])
-        if ic is not None:
-            series.append(ic)
-    return series
+    return stats.daily_ic(by_date, min_xsec=min_xsec)
 
 
 def _rank_column(

@@ -22,6 +22,8 @@ import math
 import statistics
 from typing import Any, Sequence
 
+import stats
+
 # --------------------------------------------------------------------------- #
 # 因子定义：族、标签、先验符号、公式、经济逻辑
 # --------------------------------------------------------------------------- #
@@ -154,32 +156,6 @@ def _cumsum(values: Sequence[float]) -> list[float]:
         running += value
         out.append(running)
     return out
-
-
-def _sma(values: Sequence[float], period: int) -> list[float | None]:
-    result: list[float | None] = [None] * len(values)
-    running = 0.0
-    for index, value in enumerate(values):
-        running += value
-        if index >= period:
-            running -= values[index - period]
-        if index >= period - 1:
-            result[index] = running / period
-    return result
-
-
-def _rolling_max(values: Sequence[float], window: int) -> list[float | None]:
-    result: list[float | None] = [None] * len(values)
-    queue: list[int] = []
-    for index, value in enumerate(values):
-        while queue and values[queue[-1]] <= value:
-            queue.pop()
-        queue.append(index)
-        if queue[0] <= index - window:
-            queue.pop(0)
-        if index >= window - 1:
-            result[index] = values[queue[0]]
-    return result
 
 
 def _returns(closes: Sequence[float]) -> list[float | None]:
@@ -345,7 +321,7 @@ def compute(history: dict[str, Any], market_returns: dict[str, float]) -> dict[s
     for index in range(126, count):
         if closes[index - 126] > 0:
             factors["mom6_1"][index] = closes[index - 21] / closes[index - 126] - 1.0
-    high_max = _rolling_max(highs, 252)
+    high_max = stats.rolling_max(highs, 252)
     for index, peak in enumerate(high_max):
         if peak:
             factors["high52"][index] = closes[index] / peak
@@ -445,14 +421,14 @@ def compute(history: dict[str, Any], market_returns: dict[str, float]) -> dict[s
     for index, value in enumerate(atr):
         if value is not None:
             factors["atr20"][index] = value
-    ma20 = _sma(closes, 20)
+    ma20 = stats.sma(closes, 20)
     for index in range(20, count):
         window = closes[index - 19: index + 1]
         if ma20[index] and len(window) >= 20:
             deviation = statistics.pstdev(window)
             if deviation > 1e-9:
                 factors["boll_pos"][index] = (closes[index] - ma20[index]) / (2 * deviation)
-    ma5, ma10, ma60 = _sma(closes, 5), _sma(closes, 10), _sma(closes, 60)
+    ma5, ma10, ma60 = stats.sma(closes, 5), stats.sma(closes, 10), stats.sma(closes, 60)
     for index in range(60, count):
         if None in (ma5[index], ma10[index], ma20[index], ma60[index]):
             continue
@@ -486,7 +462,7 @@ def existing(history: dict[str, Any], benchmark_returns: dict[str, dict[str, flo
     for value in dif[1:]:
         dea.append(alpha9 * value + (1 - alpha9) * dea[-1])
     hist = [(d - e) * 2 for d, e in zip(dif, dea)]
-    volume_ma = _sma(volumes, 20)
+    volume_ma = stats.sma(volumes, 20)
 
     series: dict[str, list[float | None]] = {key: [None] * count for key in EXISTING_FACTORS}
     for index in range(count):

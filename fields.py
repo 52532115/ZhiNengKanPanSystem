@@ -29,6 +29,8 @@ import bisect
 import json
 import math
 import statistics
+
+import stats
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -303,32 +305,6 @@ def _logistic(value: float, scale: float = 1.0) -> float:
     return 100.0 / (1.0 + math.exp(-x))
 
 
-def _sma(values: Sequence[float], period: int) -> list[float | None]:
-    result: list[float | None] = [None] * len(values)
-    running = 0.0
-    for index, value in enumerate(values):
-        running += value
-        if index >= period:
-            running -= values[index - period]
-        if index >= period - 1:
-            result[index] = running / period
-    return result
-
-
-def _rolling_max(values: Sequence[float], window: int) -> list[float | None]:
-    """因果滚动最大值（含当日），单调队列 O(n)。"""
-    result: list[float | None] = [None] * len(values)
-    queue: list[int] = []
-    for index, value in enumerate(values):
-        while queue and values[queue[-1]] <= value:
-            queue.pop()
-        queue.append(index)
-        if queue[0] <= index - window:
-            queue.pop(0)
-        result[index] = values[queue[0]]
-    return result
-
-
 def _daily_vol(closes: Sequence[float], window: int) -> list[float | None]:
     returns = [None] + [
         (closes[i] / closes[i - 1] - 1.0) if closes[i - 1] else None
@@ -418,12 +394,13 @@ def descriptor_series(history: dict[str, Any], *, asset_class: str | None = None
     if n < MIN_BARS:
         return [None] * n
 
-    ma20 = _sma(closes, 20)
-    ma60 = _sma(closes, 60)
-    ma120 = _sma(closes, 120)
+    ma20 = stats.sma(closes, 20)
+    ma60 = stats.sma(closes, 60)
+    ma120 = stats.sma(closes, 120)
     vol = _daily_vol(closes, VOL_WINDOW)
     vol_rank = _trailing_percentile(vol, DD_WINDOW, min_count=80)
-    rolling_high = _rolling_max(closes, DD_WINDOW)
+    # partial=True：上市不足一年时用扩张窗口算高点（历史口径，勿改）
+    rolling_high = stats.rolling_max(closes, DD_WINDOW, partial=True)
     depth = [
         (close / high - 1.0) if high else None
         for close, high in zip(closes, rolling_high)
@@ -689,8 +666,8 @@ def _zscore_rank(
 def _raw_regime_score(closes: Sequence[float], breadth: Sequence[float | None] | None) -> list[float | None]:
     """regime 的原始分（未标准化）：长期趋势、趋势斜率、波动率位置、市场宽度。"""
     n = len(closes)
-    ma60 = _sma(closes, 60)
-    ma200 = _sma(closes, 200)
+    ma60 = stats.sma(closes, 60)
+    ma200 = stats.sma(closes, 200)
     vol = _daily_vol(closes, VOL_WINDOW)
     vol_rank = _trailing_percentile(vol, REGIME_Z_WINDOW, min_count=250)
     result: list[float | None] = [None] * n

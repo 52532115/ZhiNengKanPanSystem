@@ -28,6 +28,7 @@ from typing import Any, Callable, Iterable, Sequence
 from .pit_join import AsOfBook, vintages
 
 import evalkit
+import stats
 import factors as fa
 
 HORIZON = 20
@@ -440,21 +441,15 @@ def neutralize(
 
 
 def daily_ic(rows: Sequence[dict[str, Any]], column: str) -> list[float]:
-    groups: dict[str, list[tuple[float, float]]] = {}
+    """逐日横截面 IC；核在 ``stats.daily_ic``，本函数只做行→配对装配。
+
+    ``MIN_XSEC = 30`` 是本模块的历史口径（基本面因子在薄横截面上噪声更大），
+    与 ``stats`` 的默认 20 不同，因此显式传入——收敛口径要单独一步，并重跑报告。
+    """
+    groups: dict[str, list[tuple[Any, Any]]] = {}
     for row in rows:
-        value, target = row.get(column), row.get("fwd")
-        if value is None or target is None:
-            continue
-        groups.setdefault(row["date"], []).append((value, target))
-    series: list[float] = []
-    for date in sorted(groups):
-        pairs = groups[date]
-        if len(pairs) < MIN_XSEC:
-            continue
-        ic = evalkit.spearman([p[0] for p in pairs], [p[1] for p in pairs])
-        if ic is not None:
-            series.append(ic)
-    return series
+        groups.setdefault(row["date"], []).append((row.get(column), row.get("fwd")))
+    return stats.daily_ic(groups, min_xsec=MIN_XSEC)
 
 
 def evaluate(

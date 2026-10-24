@@ -39,6 +39,8 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Sequence
 
+import stats
+
 # --------------------------------------------------------------------------- #
 # 口径常量
 # --------------------------------------------------------------------------- #
@@ -248,36 +250,11 @@ def _ols_residual(target: Sequence[float], controls: Sequence[Sequence[float]], 
         for j in range(i):
             matrix[i][j] = matrix[j][i]
         matrix[i][i] += ridge
-    coefficients = _solve(matrix, vector)
+    coefficients = stats.solve(matrix, vector)
     return [
         target[row] - sum(coefficients[i] * controls[i][row] for i in range(k))
         for row in range(n)
     ]
-
-
-def _solve(matrix: Sequence[Sequence[float]], vector: Sequence[float]) -> list[float]:
-    """高斯-约当消元（带部分主元），维数 ≤ 13，够用。"""
-    size = len(vector)
-    aug = [list(matrix[i])[:] + [vector[i]] for i in range(size)]
-    for column in range(size):
-        pivot = max(range(column, size), key=lambda r: abs(aug[r][column]))
-        if abs(aug[pivot][column]) < 1e-14:
-            continue
-        aug[column], aug[pivot] = aug[pivot], aug[column]
-        divisor = aug[column][column]
-        if abs(divisor) < 1e-16:
-            continue
-        for c in range(column, size + 1):
-            aug[column][c] /= divisor
-        for row in range(size):
-            if row == column:
-                continue
-            factor = aug[row][column]
-            if not factor:
-                continue
-            for c in range(column, size + 1):
-                aug[row][c] -= factor * aug[column][c]
-    return [aug[i][size] for i in range(size)]
 
 
 def industry_demean(
@@ -510,7 +487,7 @@ def fit_ridge(
 
     if noise is None:
         # 先用无正则解估 σ²，再回代。两步足够：σ 只影响收缩强度，不改变方向。
-        plain = _solve(xtx_total, xty_total)
+        plain = stats.solve(xtx_total, xty_total)
         residual = max(yy_total - sum(plain[i] * xty_total[i] for i in range(columns)), 0.0)
         noise = math.sqrt(max(residual / max(count - columns - 1, 1), 1e-8))
     else:
@@ -520,7 +497,7 @@ def fit_ridge(
     prior_precision = 1.0 / max(prior_tau, 1e-6) ** 2
     matrix = [[xtx_total[i][j] * precision + (prior_precision if i == j else 0.0) for j in range(columns)] for i in range(columns)]
     vector = [xty_total[i] * precision + prior_mean[i] * prior_precision for i in range(columns)]
-    coefficients = _solve(matrix, vector)
+    coefficients = stats.solve(matrix, vector)
 
     # 有效自由度：tr((XᵀX/σ² + I/τ²)⁻¹ XᵀX/σ²)，用来解释"收缩掉多少参数"
     fitted = sum(coefficients[i] * xty_total[i] for i in range(columns))
@@ -579,14 +556,14 @@ def bootstrap_fit(
                 xty[i] += block_xty[i]
                 for j in range(columns):
                     xtx[i][j] += block_xtx[i][j]
-        plain = _solve(xtx, xty)
+        plain = stats.solve(xtx, xty)
         residual = max(yy - sum(plain[i] * xty[i] for i in range(columns)), 0.0)
         noise = math.sqrt(max(residual / max(count - columns - 1, 1), 1e-8))
         precision = 1.0 / (noise * noise)
         prior_precision = 1.0 / max(prior_tau, 1e-6) ** 2
         matrix = [[xtx[i][j] * precision + (prior_precision if i == j else 0.0) for j in range(columns)] for i in range(columns)]
         vector = [xty[i] * precision + prior_mean[i] * prior_precision for i in range(columns)]
-        draws.append(_solve(matrix, vector))
+        draws.append(stats.solve(matrix, vector))
 
     point = fit_ridge(design.blocks, prior_mean=prior_mean, prior_tau=prior_tau, features=design.features)
     sign_rate: dict[str, float] = {}
@@ -1048,20 +1025,16 @@ def daily_ic(
     *,
     min_xsec: int = 10,
 ) -> list[float]:
-    """逐日横截面 Spearman(分数, 未来收益)，返回日序列（供块自助法取区间）。"""
-    from evalkit import spearman
+    """逐日横截面 Spearman(分数, 未来收益)，返回日序列（供块自助法取区间）。
 
-    series: list[float] = []
-    for date in sorted(scores_by_date):
-        scores = scores_by_date[date]
-        forwards = forward_by_date.get(date, {})
-        symbols = [s for s in scores if s in forwards]
-        if len(symbols) < min_xsec:
-            continue
-        value = spearman([scores[s] for s in symbols], [forwards[s] for s in symbols])
-        if value is not None:
-            series.append(value)
-    return series
+    ``min_xsec`` 默认 10：这是 v4 打分链路的历史口径（横截面较薄时仍要出序列），
+    与 ``stats.DEFAULT_MIN_XSEC``（20）不同，**必须显式传参**，否则报告会静默变数。
+    """
+    pairs_by_date = {
+        date: [(scores[symbol], forward_by_date.get(date, {}).get(symbol)) for symbol in scores]
+        for date, scores in scores_by_date.items()
+    }
+    return stats.daily_ic(pairs_by_date, min_xsec=min_xsec)
 
 
 def quintile_table(

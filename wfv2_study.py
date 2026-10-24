@@ -32,6 +32,7 @@ from typing import Any, Sequence
 
 import costs
 import evalkit
+import stats
 import execution as ex
 import protocol
 import score_study as ss
@@ -119,27 +120,26 @@ def flip_scores(rows_by_date: dict[str, list[dict[str, Any]]], keys: Sequence[st
 # --------------------------------------------------------------------------- #
 
 
+MIN_XSEC_IC = stats.DEFAULT_MIN_XSEC   # 当日横截面最少只数（与 xsec / protocol 一致）
+
+
 def daily_ic(
     scores: dict[tuple[str, str], float],
     labels: dict[tuple[str, str], dict[str, float]],
     dates: Sequence[str],
 ) -> list[float]:
-    """逐日横截面 Spearman(分数, 超额收益)，按日期分组后算，避免 O(分数 × 日期) 的扫描。"""
+    """逐日横截面 Spearman(分数, 超额收益)；按日期分组后交给 ``stats.daily_ic``。
+
+    先按 ``(date, symbol)`` 归并再做配对，避免 O(分数 × 日期) 的扫描；门槛（20 只）
+    以前写死在函数体里，现在显式传参，改口径时只需改一处。
+    """
     by_date: dict[str, list[tuple[float, float]]] = {}
     for (date, symbol), value in scores.items():
         entry = labels.get((date, symbol))
         if not entry or "excess" not in entry:
             continue
         by_date.setdefault(date, []).append((value, entry["excess"]))
-    series: list[float] = []
-    for date in dates:
-        pairs = by_date.get(date)
-        if not pairs or len(pairs) < 20:
-            continue
-        ic = evalkit.spearman([p[0] for p in pairs], [p[1] for p in pairs])
-        if ic is not None:
-            series.append(ic)
-    return series
+    return stats.daily_ic(by_date, min_xsec=MIN_XSEC_IC, dates=dates)
 
 
 def net_block(

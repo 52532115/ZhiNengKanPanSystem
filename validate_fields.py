@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 import etf_allocation as ea
+import stats
 import evalkit as ek
 import execution as ex
 import fields as fd
@@ -99,7 +100,7 @@ def breadth_series(
     total: dict[str, int] = defaultdict(int)
     for history in histories:
         closes = [float(row["close"]) for row in history["rows"]]
-        ma = fd._sma(closes, window)
+        ma = stats.sma(closes, window)
         for index, row in enumerate(history["rows"]):
             if ma[index] is None:
                 continue

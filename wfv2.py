@@ -35,6 +35,7 @@ from typing import Any, Callable, Iterable, Sequence
 import evalkit
 import protocol
 import scoring
+import stats
 import xsec
 
 HORIZONS = (5, 10, 20, 60)
@@ -261,7 +262,7 @@ def fit_ridge(
     限制排名的抖动，而排名抖动才是换手的来源。
     """
     columns = len(xty)
-    plain = scoring._solve([list(row) for row in xtx], list(xty))
+    plain = stats.solve([list(row) for row in xtx], list(xty))
     residual = max(yyw - sum(plain[i] * xty[i] for i in range(columns)), 0.0)
     noise = math.sqrt(max(residual / max(count - columns - 1, 1), 1e-8))
     precision = 1.0 / (noise * noise)
@@ -275,7 +276,7 @@ def fit_ridge(
         + (gamma * previous[i] if previous is not None else 0.0)
         for i in range(columns)
     ]
-    return scoring._solve(matrix, vector)
+    return stats.solve(matrix, vector)
 
 
 def score_block(
