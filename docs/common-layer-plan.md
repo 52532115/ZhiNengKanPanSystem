@@ -1,6 +1,6 @@
 # 公共层收敛方案（reporting / stats / costs）
 
-> 状态：**方案，未执行**。本文件是后续实施清单；每一步落地后回填「实测」列。
+> 状态：**P1 / P2 / P3 已执行，P4 / P5 待做**（见第 10 节执行记录）。
 > 基线：`v1.5-three-fields`（`47121a5`）。核查时间 2026-10-24。
 
 ---
@@ -342,3 +342,47 @@ def test_single_source_across_modules():
 合计约 **6 个工作日**（不含 P2.5 的重跑）。
 
 建议：**P1 → P2 → P3 先做**。这三步是纯收益（成本单一来源、数值函数单一实现、格式化不再静默出错），且验证最强（L1 精确相等）。P4/P5 属于"观感与可维护性"，可以晚做，也应单独排期——因为它们必然带来 HTML/SVG 的视觉差异，需要人工过目，不适合和计算层改动混在一个窗口。
+
+---
+
+## 10. 执行记录（P1 → P3）
+
+### 10.1 结果
+
+| 步 | commit | 内容 | 门禁结果 |
+| --- | --- | --- | --- |
+| P1 | `d049689` | `costs.py`：4 处定义 + 1 处公式 + 5 处文案收敛 | `tests/test_costs.py` 15 条；AST 禁止生产模块再出现成本字面量；365 条全绿 |
+| P2 | `3b90ef9` | `stats.py`：`sma`(4 份) / `rolling_max`(2 份) / `solve`(2 份) / `daily_ic`(5 份) / `nav_metrics`(2 份) | `tests/test_stats.py` 28 条；6 份 Markdown 逐字节一致；393 条全绿 |
+| P3 | `b1a7ff6` | `reporting.py` 数值层：`fmt` / `num` / `signed` / `inline`，519 处调用改为关键字参数 | `tests/test_reporting.py` 20 条；6 份 Markdown 仍逐字节一致；413 条全绿 |
+
+### 10.2 与方案不一致的地方（都是核查后才发现的）
+
+1. **`sma` 是 4 份，不是 2 份**：除 `factors._sma` / `fields._sma` 外，还有公开的
+   `analyzer.sma`（被 `xsec` 与测试引用）和 `etf_allocation.sma`（多一层 `None` 处理）。
+   合并后 `analyzer.sma` 与 `etf_allocation.sma` 保留为**重导出**，`is stats.sma`。
+2. **`fmt` 是 7 份，不是 6 份**：`factor_study.py` 里有一份不带下划线的
+   `fmt(value, digits, signed)`。它比 `_fmt` 更危险——`from reporting import fmt`
+   会被本地 `def` 覆盖，且不报错，只是继续用旧实现。已一并迁移。
+3. **`nav_metrics` 的 `min_points` 需要参数化**：`etf` 原本 <3 个点返回 `{}`，
+   `xsec` 是 <2。用 `min_points=3` / 缺省 2 区分，避免任一侧出现意外的空 dict。
+4. **`xsec.metrics` 的年数与 Sharpe 位数是"故意保留"的历史口径**：`calendar_len/252`
+   与 2 位小数都写死在该函数里并加注释，等报告口径统一时再改——这属于 P2.5，不属于重构。
+5. **`daily_ic` 的门槛没有统一**：P2 只做"搬实现 + 显式传参"（20/20/10/20/30），数值一个没变。
+   统一门槛会改 `scoring` 与 `altdata` 的 IC，必须单独一步并重跑报告。
+
+### 10.3 脚本踩过的坑（下次做类似 codemod 先看这里）
+
+- 正则 `(?<![\w.])_fmt\(` 会命中 `def _fmt(` 本身，写出
+  `def fmt(value, digits=digits: int = 3, ...)` 这种垃圾；必须显式跳过 `def `。
+- 默认后缀写成 `"%"` 而不是 `'"%"'` 时，会生成 `suffix=%`（少引号），f-string 直接语法错。
+  参数默认值在源码变换里必须以**源码片段**形式保存。
+- import 插在"最后一个 import 行之后"会插进跨行的 `from walkforward import (` 中间；
+  必须按括号配平找到语句真正的结束行。
+
+### 10.4 剩余工作
+
+- **P4**：`md_table` / `html_table` / `html_page` / `html_fragment` / `markdown_to_html`。
+  预期会让 HTML 结构变化，需要 L3 结构 diff + 截图人工过目。
+- **P5**：`svg_line` 统一 6 份 `_svg_nav`；删 `crossasset.py`；`reports/index.json` 同步。
+- **P2.5**（可选、独立发版）：把 `daily_ic` 的 `min_xsec` 统一为 20，重跑 `scoring` 与
+  `altdata` 并更新 `reports/index.json` 的判定。
