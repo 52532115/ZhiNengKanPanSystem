@@ -19,7 +19,12 @@ import math
 import statistics
 from typing import Any, Callable, Iterable, Sequence
 
+from costs import STOCK_COST
 from market_data import is_bse
+
+# 成本默认值：与股票池无关的保守口径（个股）。ETF 组合回测会显式传 ``costs.ETF_COST``。
+# 以前这里写死 0.00076 / 0.00126，是成本常数的第四份副本——改费率时最容易被漏掉的一份。
+DEFAULT_COST = STOCK_COST
 
 # A 股涨跌幅限制（按板块）。ST 单独 5%，由证券名称识别。
 LIMIT_MAIN = 0.10
@@ -131,8 +136,8 @@ def simulate_t1(
     cost_fn: Callable[[str, str, float, str], float] | None = None,
     flags: dict[str, dict[str, str]] | None = None,
     rebalance_every: int = 5,
-    cost_buy: float = 0.00076,
-    cost_sell: float = 0.00126,
+    cost_buy: float = DEFAULT_COST.buy,
+    cost_sell: float = DEFAULT_COST.sell,
     max_turnover: float = 0.4,
     enforce_t1_sell: bool = True,
     exposure: Callable[[str], float] | None = None,

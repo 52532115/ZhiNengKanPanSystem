@@ -33,6 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+import costs
 import evalkit as ek
 import factors as fa
 import fields as fd
@@ -512,7 +513,7 @@ def spread_after_cost(
 
     用 ``fwd``（次日开盘进、20 日后开盘出）在每 21 个交易日采样一次，等价于
     "月频调仓、持有到下次调仓"，不做逐日盯市——这是筛选用的近似，不是净值回测。
-    成本按单边年换手折算：一次完整换手 = 卖出 12.6bp + 买入 7.6bp。
+    成本按单边年换手折算：一次完整换手 = 卖出 + 买入两侧费率之和（``costs.STOCK_COST``）。
     """
     dates = sorted(date for date, rows in groups.items() if date >= start and len(rows) >= MIN_XSEC)
     spreads: list[float] = []
@@ -531,7 +532,8 @@ def spread_after_cost(
         return {"gross": None, "cost": None, "net": None}
     per_period = statistics.fmean(spreads)
     gross = per_period * (252.0 / REBALANCE)
-    cost = turnover * (12.6 + 7.6) / 100.0
+    # 口径：round_trip_bps 是「bp」，除以 100 换成「%」，与 gross 同量纲。
+    cost = turnover * costs.STOCK_COST.round_trip_bps / 100.0
     return {
         "gross": round(gross, 2),
         "cost": round(cost, 2),

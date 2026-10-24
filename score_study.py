@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
+import costs
 import evalkit
 import factors
 import scoring
@@ -79,8 +80,8 @@ MIN_SIGN_RATE = 0.80
 IC_TOL = 0.005
 SMOOTH_HALFLIFE = 5
 
-BUY_COST = 0.00076
-SELL_COST = 0.00126
+BUY_COST = costs.STOCK_COST.buy      # 7.6bp
+SELL_COST = costs.STOCK_COST.sell    # 12.6bp（含卖出印花税）
 
 
 # --------------------------------------------------------------------------- #
@@ -601,7 +602,7 @@ purge {report['split']['purged']} 个交易日；标签周期 {HORIZON} 日。
 | --- | --- | --- | --- | --- | --- |
 {turn_rows}
 
-## 3. 扣成本净值（验证集，单边 7.6bp / 12.6bp，无换手上限）
+## 3. 扣成本净值（验证集，买 {costs.STOCK_COST.buy_bps:g}bp / 卖 {costs.STOCK_COST.sell_bps:g}bp，无换手上限）
 
 | 变体 | 年化 | Sharpe | 最大回撤 | 年化换手 | 成本拖累 |
 | --- | --- | --- | --- | --- | --- |

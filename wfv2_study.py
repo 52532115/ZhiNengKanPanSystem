@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
+import costs
 import evalkit
 import execution as ex
 import protocol
@@ -717,7 +718,7 @@ def render_markdown(report: dict[str, Any]) -> str:
   更长 horizon 的成员在折内再退 `h−20` 天（更保守）。
 - 标签一律是当日横截面分位，跨 horizon 可比；合并拟合时按 1/h 加权。
 - 内层选参的验证块在训练块内部（最后 1/3，带 purge），测试折一次都没被碰过。
-- 净净值走 `execution.simulate_t1`（T+1 开盘、涨跌停/停牌过滤、无换手上限），成本 7.6/12.6bp。
+- 净净值走 `execution.simulate_t1`（T+1 开盘、涨跌停/停牌过滤、无换手上限），成本 {costs.STOCK_COST.label}。
 """
 
 
@@ -816,7 +817,7 @@ th{{color:var(--muted);font-weight:600;font-size:12px;background:#fbfcfe}}
 <li>折边界固定按 h=20 划，所有 horizon 与变体共用同一批测试块；更长 horizon 的成员在折内再退 <code>h−20</code> 天。</li>
 <li>标签是当日横截面分位，跨 horizon 可比；合并拟合按 1/h 加权。</li>
 <li>内层选参的验证块在训练块内部（最后 1/3，带 purge），测试折只评估一次。</li>
-<li>净净值走 <code>execution.simulate_t1</code>（T+1 开盘、涨跌停/停牌过滤），成本 7.6/12.6bp。</li>
+<li>净净值走 <code>execution.simulate_t1</code>（T+1 开盘、涨跌停/停牌过滤），成本 {costs.STOCK_COST.label}。</li>
 </ul></div>
 </body></html>"""
 

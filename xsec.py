@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
+import costs
 from analyzer import DEFAULT_WEIGHTS, ema, score_factors, sma
 from market_data import MarketDataClient, MarketDataError
 from walkforward import (
@@ -51,13 +52,14 @@ MIN_XSEC = 20         # 当日至少多少只标的才构成一个有效横截�
 SPLIT_RATIO = 0.6     # 时间顺序切分：前 60% 训练，后 40% 验证
 EMBARGO = 5           # 切分点额外隔离的交易日
 
-# 成本：A 股实际费率（单边）
-COMMISSION_BPS = 2.5      # 佣金 万 2.5
-TRANSFER_BPS = 0.1        # 过户费 0.001%
-STAMP_DUTY_BPS = 5.0      # 印花税 0.05%，仅卖出
-SLIPPAGE_BPS = 5.0        # 滑点（含冲击成本）0.05%
-BUY_COST = (COMMISSION_BPS + TRANSFER_BPS + SLIPPAGE_BPS) / 10000      # 0.00076
-SELL_COST = (COMMISSION_BPS + TRANSFER_BPS + SLIPPAGE_BPS + STAMP_DUTY_BPS) / 10000
+# 成本：数值只有一个来源（``costs.py``），这里只保留模块级别的别名，
+# 供本文件与既有的 ``protocol`` / ``regime_study`` 引用。
+COMMISSION_BPS = costs.COMMISSION_BPS
+TRANSFER_BPS = costs.TRANSFER_BPS
+STAMP_DUTY_BPS = costs.STAMP_DUTY_BPS
+SLIPPAGE_BPS = costs.SLIPPAGE_BPS
+BUY_COST = costs.STOCK_COST.buy      # 0.00076（7.6bp）
+SELL_COST = costs.STOCK_COST.sell    # 0.00126（12.6bp，含卖出印花税）
 
 DEFAULT_REBALANCE = 5     # 调仓间隔（交易日）
 DEFAULT_TOP_FRAC = 0.2    # 每次持有当日得分最高的 20%

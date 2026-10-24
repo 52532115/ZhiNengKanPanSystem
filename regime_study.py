@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
 import evalkit
+import costs
 import execution as ex
 import regime as rg
 import scoring
@@ -558,7 +559,7 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 基准：{report['meta']['benchmark']}（{report['meta']['start']} → {report['meta']['end']}，{report['meta']['days']} 个交易日）；
 股票池 {report['meta']['symbols']} 只，调仓 {REBALANCE} 日、Top {int(TOP_FRAC * 100)}% + 缓冲带（进 20% / 出 35%）；
-成本 单边 7.6bp 买 / 12.6bp 卖；执行 T+1 开盘、涨跌停与停牌过滤。
+成本 买 {costs.STOCK_COST.buy_bps:g}bp / 卖 {costs.STOCK_COST.sell_bps:g}bp；执行 T+1 开盘、涨跌停与停牌过滤。
 
 ## 结论
 
@@ -680,7 +681,7 @@ th{{color:var(--muted);font-weight:600;font-size:12px;background:#fbfcfe}}
 </style></head><body>
 <h1>Regime 自适应暴露 · 样本外验证</h1>
 <div class="sub">{report['meta']['benchmark']} · {report['meta']['start']} → {report['meta']['end']} · {report['meta']['days']} 个交易日 ·
-股票池 {report['meta']['symbols']} 只 · T+1 开盘执行 · 成本 7.6/12.6bp</div>
+股票池 {report['meta']['symbols']} 只 · T+1 开盘执行 · 成本 {costs.STOCK_COST.label}</div>
 
 <div class="verdict">
   <div class="pill"><b>最大回撤</b><span class="{flag_class(verdict['drawdown']['ok'])}">{verdict['drawdown']['text']}</span></div>

@@ -34,13 +34,14 @@ import statistics
 import warnings
 from typing import Any, Callable, Sequence
 
+import costs
 import etf_allocation as ea
 import execution as ex
 
 UNIVERSE = ea.UNIVERSE
 CASH = ea.CASH
-BUY_COST = ea.BUY_COST
-SELL_COST = ea.SELL_COST
+BUY_COST = costs.ETF_COST.buy     # 直接指向 costs，避免经 ea 中转后再次被复制
+SELL_COST = costs.ETF_COST.sell
 TARGET_VOL = ea.Config().target_vol
 _OLD_UNIVERSE_LEGS = ("510300", "510500", "511010", "518880", "510170", "513100", "159920")
 

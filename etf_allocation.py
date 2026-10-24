@@ -39,6 +39,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
+import costs
 import execution as ex
 
 ROOT = Path(__file__).resolve().parent
@@ -77,8 +78,8 @@ UNIVERSE: dict[str, dict[str, str]] = {
 }
 LIVE_LEGS = tuple(UNIVERSE)
 
-BUY_COST = 0.00075      # 7.5bp：佣金 2.5 + 价差/滑点 5（ETF 免印花税）
-SELL_COST = 0.00075
+BUY_COST = costs.ETF_COST.buy      # 7.5bp：佣金 2.5 + 滑点 5（ETF 免印花税）
+SELL_COST = costs.ETF_COST.sell
 
 # 规则版本：任何阈值/权重法/成本口径的改动都必须升版本，纸面跟踪与回测才可比。
 RULE_VERSION = "etf-tsmom-v1"
