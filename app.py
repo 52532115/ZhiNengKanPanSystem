@@ -12,7 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from analyzer import analyze, market_regime, relative_strength
+import fields
+from analyzer import analyze, relative_strength
 from market_data import BENCHMARKS, INDEXES, MarketDataClient, MarketDataError, normalize_symbol
 
 
@@ -20,12 +21,19 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DATA = MarketDataClient()
 
-APP_VERSION = "1.4"
+# 版本与 git tag 一一对应：tag v1.5-three-fields ⇄ APP_VERSION "1.5-three-fields"。
+# 改这里必须同时打标签，否则"页面自报版本"与"回滚点"会脱钩。
+APP_VERSION = "1.5-three-fields"
 # 相对强弱因子使用的基准；与 /api/rs 的默认基准保持一致。
 BENCHMARK_SYMBOL = "000300"
 # 供前端和 /api/health 自检：旧进程没有这些路由时会以 JSON 404 明确报错，
 # 而不是退回静态文件服务返回 HTML。
-API_ROUTES = ("/api/health", "/api/analyze", "/api/search", "/api/rs", "/api/market", "/api/batch")
+API_ROUTES = ("/api/health", "/api/analyze", "/api/search", "/api/rs", "/api/market",
+              "/api/batch", "/api/allocation")
+SUMMARY_PATH = ROOT / "reports" / "fields" / "summary.json"
+# ETF 配置是"研究产物 → 页面只读"的单向通道：app 不 import etf_allocation，
+# 不读 ETF 行情，也不缓存中间状态，只把研究报告里的 latest.json 原样暴露。
+ALLOCATION_PATH = ROOT / "reports" / "etf" / "latest.json"
 
 # 自选股组合面板：单次上限 20 个代码；真正的出站限流在 MarketDataClient 的
 # 信号量里（同时最多 2 个上行请求），这里的线程池只负责让等待时间重叠。
@@ -39,39 +47,162 @@ def json_bytes(payload: Any) -> bytes:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
-def analyze_symbol(symbol: str, limit: int = 320) -> dict[str, Any]:
+_CALIBRATION: dict[str, Any] = {}
+_CALIBRATION_STAMP = 0.0
+_EVIDENCE: dict[str, Any] = {}
+_EVIDENCE_STAMP = 0.0
+_REGIME: dict[str, Any] = {}
+_REGIME_STAMP = 0.0
+_ALLOCATION: dict[str, Any] = {}
+_ALLOCATION_STAMP = 0.0
+
+
+def calibration() -> dict[str, Any] | None:
+    """读取重新校准的分位表；文件更新后自动重载，缺失时用 fields 内置表。"""
+    global _CALIBRATION, _CALIBRATION_STAMP
+    try:
+        stamp = fields.CALIBRATION_PATH.stat().st_mtime
+    except OSError:
+        return None
+    if stamp != _CALIBRATION_STAMP:
+        _CALIBRATION = fields.load_calibration()
+        _CALIBRATION_STAMP = stamp
+    return _CALIBRATION
+
+
+def evidence() -> dict[str, Any]:
+    """各字段的验证结论，供前端挂"已验证 / 未通过"标签。"""
+    global _EVIDENCE, _EVIDENCE_STAMP
+    try:
+        stamp = SUMMARY_PATH.stat().st_mtime
+    except OSError:
+        return {}
+    if stamp != _EVIDENCE_STAMP:
+        try:
+            _EVIDENCE = json.loads(SUMMARY_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            _EVIDENCE = {}
+        _EVIDENCE_STAMP = stamp
+    return _EVIDENCE
+
+
+def field_evidence(name: str) -> dict[str, Any]:
+    """单个字段的验证结论；没有跑过验证就直接说未验证，不给"看起来还行"的暗示。"""
+    block = (evidence().get("fields") or {}).get(name) or {}
+    if not block:
+        return {"status": "untested", "label": "未验证", "detail": "尚未运行 validate_fields.py"}
+    passed = bool(block.get("pass"))
+    reasons = "；".join(block.get("reasons") or [])
+    return {
+        "status": "passed" if passed else "failed",
+        "label": "验证通过" if passed else "未通过验证",
+        "detail": reasons or "全部条件满足",
+    }
+
+
+def selection_evidence() -> dict[str, Any]:
+    block = (evidence().get("fields") or {}).get("selection") or {}
+    if not block:
+        return {"status": "untested", "label": "未验证", "detail": "尚未运行 validate_fields.py"}
+    passed = bool(block.get("pass"))
+    metrics = block.get("metrics") or {}
+    low, high = metrics.get("lockbox_ci_low"), metrics.get("lockbox_ci_high")
+    detail = (
+        f"锁箱期 IC {round(metrics['lockbox_ic'], 3)}，95% 区间 [{round(low, 3)}, {round(high, 3)}]"
+        if low is not None else "锁箱期样本不足，无法给出区间"
+    )
+    return {
+        "status": "passed" if passed else "failed",
+        "label": "样本外通过" if passed else "无超额证据",
+        "detail": detail + ("；仍只宜作相对排序参考" if passed else "；该字段不应作为买入依据"),
+    }
+
+
+def allocation_payload() -> dict[str, Any]:
+    """读取 ``reports/etf/latest.json``；文件更新后自动重载。
+
+    只做三件事：读文件、按 mtime 缓存、缺文件时明确说"没生成"。不含任何计算——
+    权重、约束、纸面跟踪全部由 ``etf_allocation`` 离线生成，页面与接口只负责展示，
+    这样"页面上看到的配置"与"回测/验证里跑的配置"必然是同一份。
+    """
+    global _ALLOCATION, _ALLOCATION_STAMP
+    try:
+        stamp = ALLOCATION_PATH.stat().st_mtime
+    except OSError:
+        return {"available": False, "reason": "尚未生成 reports/etf/latest.json",
+                "hint": "运行 python -m etf_allocation"}
+    if stamp != _ALLOCATION_STAMP:
+        try:
+            _ALLOCATION = json.loads(ALLOCATION_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            _ALLOCATION = {"error": f"latest.json 解析失败：{exc}"}
+        _ALLOCATION_STAMP = stamp
+    return {"available": "error" not in _ALLOCATION, **dict(_ALLOCATION)}
+
+
+def current_regime(benchmark: dict[str, Any] | None) -> dict[str, Any] | None:
+    """regime 只依赖基准行情，按数据日期缓存，避免批量请求重复计算。"""
+    global _REGIME, _REGIME_STAMP
+    if not benchmark:
+        return None
+    stamp = float(len(benchmark["rows"]))
+    if _REGIME_STAMP != stamp:
+        _REGIME = fields.regime(benchmark)
+        _REGIME_STAMP = stamp
+    return _REGIME
+
+
+def analyze_symbol(
+    symbol: str,
+    limit: int = 320,
+    pool_percentiles: dict[str, float] | None = None,
+) -> dict[str, Any]:
     history = DATA.history(symbol, limit)
     try:
-        # 基准只用于相对强弱因子；取不到时该因子记 0 分，不影响主分析。
-        benchmark = DATA.history(BENCHMARK_SYMBOL, max(limit, 260), index=True)
+        benchmark = DATA.history(BENCHMARK_SYMBOL, max(limit, 1200), index=True)
     except MarketDataError:
         benchmark = None
     try:
         quote = DATA.quote(symbol)
     except MarketDataError:
         quote = None
-    return analyze(history, quote, benchmark=benchmark)
+    result = analyze(
+        history, quote,
+        benchmark=benchmark,
+        calibration=calibration(),
+        pool_percentiles=pool_percentiles,
+        regime=current_regime(benchmark),
+    )
+    result["fields"]["selection"]["evidence"] = selection_evidence()
+    result["evidence"] = {
+        "descriptor": field_evidence("descriptor"),
+        "selection": selection_evidence(),
+        "regime": field_evidence("regime"),
+    }
+    return result
 
 
-def batch_item(symbol: str) -> dict[str, Any]:
-    """One row of the watchlist panel: quote fields + rule-model score.
+def batch_row(result: dict[str, Any]) -> dict[str, Any]:
+    """自选面板的一行：价格 + 三字段状态 + 客观异动。
 
-    异动只在"确实偏离常态"时置顶，避免把每只股票都标成异动：涨跌幅阈值按
-    股票 5% / 场内基金 3% 区分，量比 2.2 倍以上视为放量，评分仅取极值。
+    异动只写事实（涨跌幅、量比、分位极端），不写"看多/看空"这类结论——
+    三个字段各有口径，不能合成一句话。
     """
-    result = analyze_symbol(symbol, 200)
     day_change = result["day_change"] or 0.0
     volume_ratio = result["metrics"]["volume_ratio"] or 1.0
     move_threshold = 3.0 if result["asset_type"] in ("etf", "fund") else 5.0
+    descriptor = result["fields"]["descriptor"]
+    selection = result["fields"]["selection"]
     alerts: list[str] = []
     if abs(day_change) >= move_threshold:
         alerts.append(f"涨跌幅 {day_change:+.2f}% 超过 {move_threshold:.0f}% 异动阈值")
     if volume_ratio >= 2.2:
         alerts.append(f"量比 {volume_ratio:.2f} 倍显著放大")
-    if result["score"] >= 85:
-        alerts.append(f"评分 {result['score']} 进入极强区间")
-    elif result["score"] <= 15:
-        alerts.append(f"评分 {result['score']} 进入极弱区间")
+    percentile = descriptor.get("percentile", {}).get("value")
+    if percentile is not None and percentile >= 90:
+        alerts.append(f"趋势状态进入同类最高档（{percentile:.0f} 分位）")
+    elif percentile is not None and percentile <= 10:
+        alerts.append(f"趋势状态进入同类最低档（{percentile:.0f} 分位）")
     return {
         "symbol": result["symbol"],
         "name": result["name"],
@@ -80,14 +211,40 @@ def batch_item(symbol: str) -> dict[str, Any]:
         "price": result["price"],
         "price_precision": result["price_precision"],
         "day_change": day_change,
-        "score": result["score"],
-        "view": result["view"],
-        "tone": result["tone"],
+        "descriptor": {
+            "available": descriptor.get("available", False),
+            "score": descriptor.get("score"),
+            "percentile": descriptor.get("percentile"),
+            "self_percentile": descriptor.get("self_percentile"),
+            "band": descriptor.get("band"),
+        },
+        "selection": {
+            "available": selection.get("available", False),
+            "percentile": selection.get("percentile"),
+            "pool_size": selection.get("pool_size"),
+            "evidence": selection.get("evidence"),
+        },
+        "regime": {
+            "state": result["fields"]["regime"].get("state"),
+            "label": result["fields"]["regime"].get("label"),
+            "exposure": result["fields"]["regime"].get("exposure"),
+        },
         "alert": bool(alerts),
         "alert_reason": "；".join(alerts),
         "as_of": result["as_of"],
         "data_source": result["data_source"],
     }
+
+
+def batch_rank(item: dict[str, Any]) -> tuple[Any, ...]:
+    """自选表排序：异动置顶，其余按池内分位降序；**0 分位不是缺失**。
+
+    旧写法 ``-(percentile or -1)`` 把 0 元分成 ‑1，取负后反而排到最前——最弱的
+    标的被排成了第一。这里显式区分 ``None``（没有横截面）与 ``0``（排最后一名）：
+    ``None`` 永远排在最后。
+    """
+    percentile = (item.get("selection") or {}).get("percentile")
+    return (not item.get("alert"), percentile is None, -(percentile or 0.0))
 
 
 def batch_payload(symbols: list[Any]) -> dict[str, Any]:
@@ -107,24 +264,44 @@ def batch_payload(symbols: list[Any]) -> dict[str, Any]:
 
     def work(code: str) -> dict[str, Any]:
         try:
-            return batch_item(code)
+            return analyze_symbol(code, 320)
         except (MarketDataError, ValueError) as exc:
             return {"symbol": code, "error": str(exc)}
 
-    items: list[dict[str, Any]] = []
-    for row in POOL.map(work, cleaned):
+    analyses = [row for row in POOL.map(work, cleaned)]
+    usable = [row for row in analyses if "error" not in row]
+    for row in analyses:
         if "error" in row:
             failed.append(row)  # type: ignore[arg-type]
-        else:
-            items.append(row)
 
-    items.sort(key=lambda item: (not item["alert"], -item["score"]))
-    as_of = max((item["as_of"] for item in items), default=None)
+    # 池内分位需要整个自选池一起算，所以先跑完再补 selection 字段。
+    scores = {
+        row["symbol"]: row["fields"]["descriptor"]["score"]
+        for row in usable
+        if row["fields"]["descriptor"].get("available")
+    }
+    percentiles = fields.pool_percentiles(scores)
+    evidence = selection_evidence()
+    as_of = max((row["as_of"] for row in usable), default="")
+    items: list[dict[str, Any]] = []
+    for row in usable:
+        available = row["fields"]["descriptor"].get("available")
+        row["fields"]["selection"] = fields.selection_field(
+            row["symbol"], percentiles if available else None,
+            as_of=row["as_of"], evidence=evidence,
+        )
+        items.append(batch_row(row))
+
+    items.sort(key=batch_rank)
     return {
         "items": items,
         "failed": failed,
-        "as_of": as_of,
+        "as_of": as_of or None,
         "alert_count": sum(1 for item in items if item["alert"]),
+        "pool": {
+            "size": len(percentiles),
+            "label": "当日同池分位（自选池）",
+        },
     }
 
 
@@ -194,7 +371,8 @@ class Handler(BaseHTTPRequestHandler):
                         "status": "ok",
                         "version": APP_VERSION,
                         "routes": list(API_ROUTES),
-                        "features": ["search", "relative_strength", "rs_factor", "batch", "candlestick", "score_factors"],
+                        "features": ["search", "relative_strength", "batch", "candlestick",
+                                     "three_fields", "etf_allocation"],
                     },
                 )
                 return
@@ -219,18 +397,41 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json(200, {"ok": True, "data": relative_strength(stock, bench, days)})
                 return
             if parsed.path == "/api/market":
-                items = []
+                benchmark = DATA.history(BENCHMARK_SYMBOL, 1200, index=True)
+                regime = fields.regime(benchmark)
+                indexes = []
                 for symbol, (_, name) in INDEXES.items():
-                    result = analyze(DATA.history(symbol, 260, index=True))
-                    items.append(
+                    history = DATA.history(symbol, 320, index=True)
+                    descriptor = fields.describe(history, asset_type="index", calibration=calibration())
+                    indexes.append(
                         {
-                            **result,
+                            "symbol": symbol,
                             "name": name,
-                            "chart": [],
-                            "reasons": [],
+                            "as_of": history["rows"][-1]["date"],
+                            "price": history["rows"][-1]["close"],
+                            "descriptor": {
+                                "score": descriptor.get("score"),
+                                "percentile": descriptor.get("percentile"),
+                                "band": descriptor.get("band"),
+                                "available": descriptor.get("available", False),
+                                "asset_class": descriptor.get("asset_class"),
+                            },
                         }
                     )
-                self._send_json(200, {"ok": True, "data": market_regime(items)})
+                self._send_json(
+                    200,
+                    {
+                        "ok": True,
+                        "data": {
+                            **regime,
+                            "indexes": indexes,
+                            "evidence": (evidence().get("fields") or {}).get("regime"),
+                        },
+                    },
+                )
+                return
+            if parsed.path == "/api/allocation":
+                self._send_json(200, {"ok": True, "data": allocation_payload()})
                 return
             if parsed.path.startswith("/api/"):
                 self._send_json(

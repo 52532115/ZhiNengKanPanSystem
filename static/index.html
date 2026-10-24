@@ -14,7 +14,7 @@
       <span class="brand-mark">澜</span>
       <span><strong>观澜</strong><small>A 股 · ETF 研究台</small></span>
     </a>
-    <div class="market-pill" id="marketPill"><i></i><span>市场环境加载中</span></div>
+    <div class="market-pill" id="marketPill"><i></i><span>市场状态加载中</span></div>
     <button class="watch-button" id="watchButton" type="button">＋ 加入自选</button>
   </header>
 
@@ -22,7 +22,7 @@
     <section class="hero">
       <div class="eyebrow">A-SHARE RESEARCH DESK</div>
       <h1>读懂趋势，<em>敬畏风险。</em></h1>
-      <p>用可解释的量价信号审视每一次决策。输入沪深京 A 股或场内 ETF 的代码、名称或拼音缩写，获得趋势、动量、相对强弱与风险的交叉分析。</p>
+      <p>三个字段，三套口径，互不顶替：趋势状态只描述现在，横截面分位只回答池内排名，市场状态只约束总暴露。输入沪深京 A 股或场内 ETF 的代码、名称或拼音缩写。</p>
       <div class="search-wrap">
         <form class="search" id="searchForm">
           <label class="sr-only" for="symbolInput">股票或 ETF 代码、名称、拼音</label>
@@ -44,6 +44,17 @@
       </div>
     </section>
 
+    <section class="allocation-section" id="allocationSection" aria-labelledby="allocationTitle">
+      <div class="section-head">
+        <div><span>ETF ALLOCATION</span><h2 id="allocationTitle">跨资产 ETF 配置</h2></div>
+        <p class="alloc-meta" id="allocMeta">读取配置中…</p>
+      </div>
+      <p class="alloc-disclaimer" id="allocDisclaimer">研究结果，不是投资建议。</p>
+      <div id="allocationBody">
+        <div class="alloc-empty">正在读取 reports/etf/latest.json…</div>
+      </div>
+    </section>
+
     <section class="status-message hidden" id="statusMessage" role="status"></section>
 
     <section id="dashboard" class="dashboard hidden">
@@ -55,28 +66,73 @@
         <div class="day-change" id="dayChange">—</div>
       </div>
 
-      <div class="overview-grid">
-        <article class="score-card panel">
-          <div class="panel-label">综合研判</div>
-          <div class="score-wrap">
-            <div class="score-ring" id="scoreRing"><div><strong id="scoreValue">—</strong><small>/ 100</small></div></div>
-            <div class="verdict">
-              <span class="verdict-tag" id="verdictTag">—</span>
-              <h3 id="verdictSummary">—</h3>
-              <p id="positionGuidance">—</p>
-            </div>
+      <div class="field-grid">
+        <article class="field-card panel">
+          <div class="field-head">
+            <span class="panel-label">趋势状态</span>
+            <span class="scope-tag">描述口径</span>
           </div>
+          <div class="field-value">
+            <strong id="descriptorBand">—</strong>
+            <em id="descriptorPct">—</em>
+          </div>
+          <div class="pct-track" id="descriptorTrack">
+            <i></i>
+            <b class="cut" style="left:20%"></b><b class="cut" style="left:40%"></b>
+            <b class="cut" style="left:60%"></b><b class="cut" style="left:80%"></b>
+          </div>
+          <div class="field-meta" id="descriptorMeta"></div>
+          <p class="field-note" id="descriptorNote"></p>
+          <div class="evidence-badge" id="descriptorEvidence"></div>
         </article>
 
-        <article class="levels-card panel">
-          <div class="panel-label">关键价格参考</div>
-          <div class="levels">
-            <div><small>附近支撑</small><strong id="supportLevel">—</strong><span>观察承接</span></div>
-            <div><small>上方压力</small><strong id="resistanceLevel">—</strong><span>确认突破</span></div>
-            <div><small>风险参考</small><strong id="riskLevel">—</strong><span>纪律优先</span></div>
+        <article class="field-card panel">
+          <div class="field-head">
+            <span class="panel-label">横截面分位</span>
+            <span class="scope-tag">选股口径</span>
           </div>
+          <div class="field-value">
+            <strong id="selectionPct">—</strong>
+            <em id="selectionPool">—</em>
+          </div>
+          <div class="pct-track" id="selectionTrack"><i></i></div>
+          <div class="field-meta" id="selectionMeta"></div>
+          <p class="field-note" id="selectionNote"></p>
+          <div class="evidence-badge" id="selectionEvidence"></div>
+        </article>
+
+        <article class="field-card panel">
+          <div class="field-head">
+            <span class="panel-label">市场状态</span>
+            <span class="scope-tag">择时口径</span>
+          </div>
+          <div class="field-value">
+            <strong id="regimeState">—</strong>
+            <em id="regimeExposure">—</em>
+          </div>
+          <div class="regime-scale" id="regimeScale">
+            <span data-state="risk_off">防守</span>
+            <span data-state="neutral">中性</span>
+            <span data-state="risk_on">上行</span>
+          </div>
+          <div class="field-meta" id="regimeMeta"></div>
+          <p class="field-note" id="regimeNote"></p>
+          <div class="evidence-badge" id="regimeEvidence"></div>
         </article>
       </div>
+
+      <p class="scope-strip">
+        三个字段各自独立：趋势状态好不等于该买（那是选股口径的事），分位高也不等于该重仓（那由市场状态决定）。
+      </p>
+
+      <article class="levels-card panel">
+        <div class="panel-label">关键价格参考</div>
+        <div class="levels">
+          <div><small>附近支撑</small><strong id="supportLevel">—</strong><span>观察承接</span></div>
+          <div><small>上方压力</small><strong id="resistanceLevel">—</strong><span>确认突破</span></div>
+          <div><small>风险参考</small><strong id="riskLevel">—</strong><span>纪律优先</span></div>
+        </div>
+      </article>
 
       <div class="detail-grid">
         <article class="chart-card panel">
@@ -98,12 +154,12 @@
         </article>
 
         <article class="signals-card panel">
-          <div class="panel-label">信号拆解</div>
+          <div class="panel-label">趋势状态</div>
           <h3>判断依据</h3>
           <div class="reasons" id="reasons"></div>
           <div class="factor-block" id="factorBlock">
-            <div class="factor-head"><span>评分构成</span><small>基准 50 分，按因子贡献加减</small></div>
-            <div class="factors" id="factors"></div>
+            <div class="factor-head"><span>状态分量</span><small>各分量 0–100，只描述状态</small></div>
+            <div class="components" id="components"></div>
           </div>
         </article>
       </div>
@@ -136,8 +192,8 @@
         <div class="section-head">
           <div><span>MY WATCHLIST</span><h2>我的自选</h2></div>
           <div class="watch-tools">
-            <p id="watchlistMeta">评分由服务端批量计算</p>
-            <button type="button" class="watch-refresh" id="watchRefresh">刷新评分</button>
+            <p id="watchlistMeta">池内分位由整张自选表一起计算</p>
+            <button type="button" class="watch-refresh" id="watchRefresh">刷新</button>
           </div>
         </div>
         <div id="watchlistBody"><div class="watchlist" id="watchlist"></div></div>
@@ -146,11 +202,11 @@
 
     <section class="disclaimer">
       <strong>风险声明</strong>
-      <p>本工具仅用于行情研究与信息辅助，不构成针对任何人的证券投资建议，也不预测或保证收益。模型只分析历史量价数据，未纳入财务造假、停复牌、重大事项和个人风险承受能力；ETF 分析也未纳入跟踪误差、溢折价、费率和底层资产估值。市场有风险，决策前请独立判断，必要时咨询持牌专业人士。</p>
+      <p>本工具仅用于行情研究与信息辅助，不构成针对任何人的证券投资建议，也不预测或保证收益。三个字段分别对应描述、选股、择时三种口径，各自有独立的验证结论，页面不提供综合评分，也不把描述当作买卖信号。模型只分析历史量价数据，未纳入财务造假、停复牌、重大事项和个人风险承受能力；ETF 分析也未纳入跟踪误差、溢折价、费率和底层资产估值。市场有风险，决策前请独立判断，必要时咨询持牌专业人士。</p>
     </section>
   </main>
 
-  <footer><span>观澜研究台 · A 股与 ETF · 规则透明</span><span>数据更新取决于公开行情源</span></footer>
+  <footer><span>观澜研究台 · A 股与 ETF · 口径分离</span><span>数据更新取决于公开行情源</span></footer>
   <script src="/app.js" defer></script>
 </body>
 </html>

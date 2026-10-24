@@ -23,6 +23,7 @@ const state = {
   chart: null,
   rs: null,
   batch: null,
+  allocation: null,
   watchlist: loadWatchlist(),
   suggest: { items: [], active: -1, timer: null, seq: 0, cache: new Map() },
   requestId: 0,
@@ -201,29 +202,119 @@ function renderMetrics(metrics, assetType) {
   ).join("");
 }
 
-function renderFactors(factors) {
+function renderComponents(components, coverage) {
+  const box = $("#components");
   const block = $("#factorBlock");
-  const box = $("#factors");
   if (!block || !box) return;
-  if (!Array.isArray(factors) || !factors.length) {
+  if (!Array.isArray(components) || !components.length) {
     block.classList.add("hidden");
     box.innerHTML = "";
     return;
   }
   block.classList.remove("hidden");
-  const peak = Math.max(9, ...factors.map((factor) => Math.abs(Number(factor.delta) || 0)));
-  box.innerHTML = factors.map((factor) => {
-    const delta = Number(factor.delta) || 0;
-    const width = Math.min(50, (Math.abs(delta) / peak) * 50);
-    const tone = factor.tone || (delta > 0 ? "positive" : delta < 0 ? "negative" : "neutral");
-    const side = delta > 0 ? "pos" : delta < 0 ? "neg" : "";
-    const detail = [factor.weight, factor.reason].filter(Boolean).join(" · ");
-    return `<div class="factor" title="${escapeHtml(detail)}">
-      <span class="factor-label">${escapeHtml(factor.label || factor.key)}</span>
-      <span class="factor-delta ${tone}">${delta > 0 ? "+" : ""}${delta}</span>
-      <span class="factor-track">${side ? `<i class="${side}" style="width:${width.toFixed(1)}%"></i>` : ""}</span>
+  box.innerHTML = components.map((item) => {
+    const value = Number(item.score);
+    const known = Number.isFinite(value);
+    const tone = !known ? "" : value >= 60 ? "strong" : value <= 40 ? "weak" : "";
+    return `<div class="component" title="权重 ${(item.weight * 100).toFixed(0)}%">
+      <span class="component-label">${escapeHtml(item.label || item.key)}</span>
+      <span class="component-value">${known ? value.toFixed(0) : "—"}</span>
+      <span class="component-track"><i class="${tone}" style="width:${known ? Math.max(2, value) : 0}%"></i></span>
     </div>`;
   }).join("");
+  const head = block.querySelector(".factor-head small");
+  if (head) {
+    head.textContent = coverage < 0.99
+      ? `各分量 0–100 · 分量覆盖 ${(coverage * 100).toFixed(0)}%`
+      : "各分量 0–100，只描述状态";
+  }
+}
+
+function pctLabel(value) {
+  return value === null || value === undefined ? "—" : `${Math.round(value)} 分位`;
+}
+
+function renderEvidence(selector, evidence) {
+  const node = $(selector);
+  if (!node) return;
+  const status = evidence?.status || "untested";
+  node.className = `evidence-badge ${status}`;
+  node.textContent = `验证：${evidence?.label || "未验证"}${evidence?.detail ? ` · ${evidence.detail}` : ""}`;
+  node.title = evidence?.detail || "";
+}
+
+function renderDescriptor(field) {
+  const band = field.band || {};
+  const hasField = Boolean(field.available);
+  // 同类分位可能被显式关闭（指数没有同类校准）：此时退回"相对自身"分位，
+  // 不能把 null 当 0 画成一根空的进度条，也不能继续写"同类"。
+  const classPct = field.percentile && field.percentile.available !== false
+    ? field.percentile.value : null;
+  const hasClass = hasField && classPct !== null && classPct !== undefined;
+  const self = field.self_percentile || null;
+  const hasSelf = hasField && self && self.value !== null && self.value !== undefined;
+  const shown = hasClass ? classPct : (hasSelf ? self.value : null);
+  $("#descriptorBand").textContent = hasField ? band.label || "—" : "数据不足";
+  $("#descriptorPct").textContent = shown === null ? "" : (hasClass ? `同类 ${pctLabel(shown)}` : `自身 ${pctLabel(shown)}`);
+  const track = $("#descriptorTrack");
+  track.className = `pct-track ${hasField ? band.key || "" : ""}`;
+  const fill = track.querySelector("i");
+  if (fill) fill.style.width = shown === null ? "0%" : `${Math.max(0, Math.min(100, shown))}%`;
+  const meta = [];
+  if (hasClass) {
+    const n = field.percentile.n;
+    meta.push(`<span>参照系：<b>${escapeHtml(field.percentile.label)}</b>${n ? `（${n} 个样本）` : "（内置校准表）"}</span>`);
+    if (hasSelf) {
+      meta.push(`<span>相对自身：<b>近 ${self.window} 日 ${pctLabel(self.value)}</b></span>`);
+    }
+    if (field.pool_percentile) {
+      meta.push(`<span>当日同池：<b>${pctLabel(field.pool_percentile.value)}</b> / ${field.pool_percentile.n} 只</span>`);
+    }
+  } else if (hasSelf) {
+    meta.push(`<span>参照系：<b>近 ${self.window} 日自身分位</b>（${escapeHtml(field.percentile?.reason || "无同类校准")}）</span>`);
+    meta.push(`<span>档位依据：<b>${band.basis === "self" ? "自身分位" : "同类分位"}</b></span>`);
+  } else {
+    meta.push(`<span>${escapeHtml(field.reason || "暂无可用状态")}</span>`);
+  }
+  $("#descriptorMeta").innerHTML = meta.join("");
+  $("#descriptorNote").textContent = field.headline || field.usage || "";
+  renderComponents(field.components, field.coverage ?? 1);
+}
+
+function renderSelection(field) {
+  const available = Boolean(field.available) && field.percentile !== null && field.percentile !== undefined;
+  $("#selectionPct").textContent = available ? `${Math.round(field.percentile)} 分位` : "—";
+  $("#selectionPool").textContent = available
+    ? `${field.label || "当日同池"} · ${field.pool_size} 只`
+    : "需要池内比较";
+  const track = $("#selectionTrack");
+  track.className = `pct-track ${available ? "neutral" : ""}`;
+  const fill = track.querySelector("i");
+  if (fill) fill.style.width = available ? `${Math.max(0, Math.min(100, field.percentile))}%` : "0%";
+  $("#selectionMeta").innerHTML = available
+    ? `<span>只回答「同一天、同一池子里排第几」</span><span>换池子排名就变，不能跨池比较</span>`
+    : `<span>${escapeHtml(field.reason || "单标的查询没有横截面")}</span>`;
+  $("#selectionNote").textContent = field.note || field.usage || "";
+}
+
+function renderRegime(field) {
+  const available = Boolean(field.available);
+  $("#regimeState").textContent = available ? field.label : "未知";
+  $("#regimeExposure").textContent = available ? `总暴露上限 ${Math.round((field.exposure ?? 0) * 100)}%` : "";
+  document.querySelectorAll("#regimeScale span").forEach((node) => {
+    node.classList.toggle("on", available && node.dataset.state === field.state);
+  });
+  const meta = [];
+  if (available) {
+    const history = field.history || {};
+    meta.push(`<span>标准化分数 z = <b>${Number(field.z).toFixed(2)}</b>（切点 ±${field.cut}σ）</span>`);
+    meta.push(`<span>近 ${history.window} 个交易日里该状态占 <b>${history.share}%</b>，切换 ${history.switches} 次</span>`);
+    meta.push(`<span>基准：<b>${escapeHtml(field.benchmark || "沪深300")}</b></span>`);
+  } else {
+    meta.push(`<span>${escapeHtml(field.reason || "暂无基准行情")}</span>`);
+  }
+  $("#regimeMeta").innerHTML = meta.join("");
+  $("#regimeNote").textContent = available ? field.guidance : field.usage || "";
 }
 
 function renderAnalysis(data) {
@@ -236,23 +327,27 @@ function renderAnalysis(data) {
   const change = $("#dayChange");
   change.textContent = `${Number(data.day_change) > 0 ? "+" : ""}${formatNumber(data.day_change, "%")}`;
   change.className = `day-change ${changeClass(data.day_change)}`;
-  $("#scoreValue").textContent = data.score;
-  const ringColor = data.tone === "positive" ? "#176b4d" : data.tone === "negative" ? "#b34938" : "#aa7627";
-  $("#scoreRing").style.cssText = `--score:${data.score};--ring:${ringColor}`;
-  const tag = $("#verdictTag"); tag.textContent = data.view; tag.className = `verdict-tag ${data.tone}`;
-  $("#verdictSummary").textContent = data.summary;
-  $("#positionGuidance").textContent = data.position_guidance;
+
+  const fieldset = data.fields || {};
+  renderDescriptor(fieldset.descriptor || { available: false, reason: "缺少描述字段" });
+  renderSelection(fieldset.selection || { available: false });
+  renderRegime(fieldset.regime || { available: false });
+  renderEvidence("#descriptorEvidence", data.evidence?.descriptor);
+  renderEvidence("#selectionEvidence", data.evidence?.selection || fieldset.selection?.evidence);
+  renderEvidence("#regimeEvidence", data.evidence?.regime);
+  if (fieldset.regime?.available) updateMarketPill(fieldset.regime);
+
   $("#supportLevel").textContent = formatNumber(data.levels.support, "", data.price_precision);
   $("#resistanceLevel").textContent = formatNumber(data.levels.resistance, "", data.price_precision);
   $("#riskLevel").textContent = formatNumber(data.levels.risk_reference, "", data.price_precision);
   $("#reasons").innerHTML = data.reasons.map((reason) => `<div class="reason ${reason.type}">${escapeHtml(reason.text)}</div>`).join("");
-  renderFactors(data.factors);
   $("#methodology").textContent = data.methodology;
   renderMetrics(data.metrics, data.asset_type);
   $("#dashboard").classList.remove("hidden");
   initChart(data.chart);
   refreshRS(data.symbol);
   updateWatchButton();
+  if (state.watchlist.some((entry) => entry.symbol === data.symbol)) refreshWatchlist();
 }
 
 async function resolveSymbol(query) {
@@ -852,11 +947,14 @@ function watchCardHtml(entry, item) {
   const name = item?.name || entry.name || entry.symbol;
   const precision = item?.price_precision ?? 2;
   const change = item ? Number(item.day_change) : null;
+  const band = item?.descriptor?.band;
+  const descriptorPct = item?.descriptor?.percentile?.value;
+  const poolPct = item?.selection?.percentile;
   const body = item
     ? `<div class="wc-price"><span>${formatNumber(item.price, "", precision)}</span><em class="${changeClass(change)}">${signed(change, "%")}</em></div>
-       <div class="wc-foot"><span class="score-chip ${item.tone}">${item.score} 分</span><span class="wc-view">${escapeHtml(item.view)}</span></div>
+       <div class="wc-foot"><span class="score-chip ${band?.key || ""}">${band?.label || "—"} ${descriptorPct === null || descriptorPct === undefined ? "" : Math.round(descriptorPct)}</span><span class="wc-view">池内 ${poolPct === null || poolPct === undefined ? "—" : Math.round(poolPct)} 分位</span></div>
        ${item.alert ? `<div class="wc-flag">${escapeHtml(item.alert_reason)}</div>` : ""}`
-    : `<div class="wc-pending">评分计算中…</div>`;
+    : `<div class="wc-pending">计算中…</div>`;
   return `<article class="watch-card ${item?.alert ? "alert" : ""}">
     <button type="button" class="watch-open" data-open="${entry.symbol}">
       <div class="wc-top"><strong>${escapeHtml(name)}</strong><span class="wc-code">${entry.symbol}</span></div>
@@ -869,7 +967,7 @@ function watchCardHtml(entry, item) {
 function renderWatchlist(items) {
   const container = $("#watchlistBody");
   if (!state.watchlist.length) {
-    container.innerHTML = `<div class="empty-watch">尚未添加自选股。完成一次分析后点击右上角“加入自选”，这里会显示评分与异动提示。</div>`;
+    container.innerHTML = `<div class="empty-watch">尚未添加自选。加入 2 只以上后，这里会显示趋势状态档位、池内分位与客观异动提示。</div>`;
     return;
   }
   const map = new Map((items || []).map((item) => [item.symbol, item]));
@@ -878,7 +976,7 @@ function renderWatchlist(items) {
   const limitNote = over > 0
     ? `<div class="watch-limit">自选共 ${state.watchlist.length} 只，超过 ${MAX_WATCHLIST} 只上限；仅前 ${MAX_WATCHLIST} 只参与评分，请移除 ${over} 只。</div>`
     : "";
-  const rank = (row) => (row.item ? row.item.score : -1);
+  const rank = (row) => (row.item ? (row.item.selection?.percentile ?? row.item.descriptor?.percentile?.value ?? -1) : -1);
   const byScore = (a, b) => rank(b) - rank(a);
   const alerts = rows.filter((row) => row.item?.alert).sort(byScore);
   const others = rows.filter((row) => !row.item?.alert).sort(byScore);
@@ -900,15 +998,15 @@ async function refreshWatchlist() {
   if (!state.watchlist.length) {
     button.classList.remove("loading");
     renderWatchlist();
-    $("#watchlistMeta").textContent = "保存在当前浏览器中";
+    $("#watchlistMeta").textContent = "保存在当前浏览器中，池内分位需至少 2 只";
     return;
   }
   const symbols = state.watchlist.slice(0, MAX_WATCHLIST).map((item) => item.symbol);
   renderWatchlist(state.batch?.items);
   button.classList.add("loading");
-  $("#watchlistMeta").textContent = "正在计算评分与异动…";
+  $("#watchlistMeta").textContent = "正在计算三字段与异动…";
   const over = state.watchlist.length - MAX_WATCHLIST;
-  const limitNote = over > 0 ? ` · 仅前 ${MAX_WATCHLIST} 只评分（超 ${over} 只）` : "";
+  const limitNote = over > 0 ? ` · 仅前 ${MAX_WATCHLIST} 只计算（超 ${over} 只）` : "";
   try {
     const data = await postJSON("/api/batch", { symbols });
     if (batchId !== state.batchRequestId) return;
@@ -917,12 +1015,12 @@ async function refreshWatchlist() {
     const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
     const failed = data.failed?.length ? ` · ${data.failed.length} 个失败` : "";
     const alertText = data.alert_count ? ` · ${data.alert_count} 个异动` : "";
-    $("#watchlistMeta").textContent = `${time} 更新 · 按评分排序${alertText}${failed}${limitNote}`;
+    $("#watchlistMeta").textContent = `${time} 更新 · 按池内分位排序${alertText}${failed}${limitNote}`;
   } catch (error) {
     if (batchId !== state.batchRequestId) return;
     state.batch = null;
     renderWatchlist();
-    $("#watchlistMeta").textContent = `评分刷新失败：${error.message}`;
+    $("#watchlistMeta").textContent = `刷新失败：${error.message}`;
   } finally {
     if (batchId === state.batchRequestId) button.classList.remove("loading");
   }
@@ -930,15 +1028,173 @@ async function refreshWatchlist() {
 
 /* --------------------------------- 市场环境 --------------------------------- */
 
+function updateMarketPill(regime) {
+  const pill = $("#marketPill");
+  if (!pill || !regime?.available) return;
+  pill.className = `market-pill ${regime.tone || ""}`;
+  pill.querySelector("span").textContent = `市场状态 · ${regime.label} · 暴露≤${Math.round((regime.exposure ?? 0) * 100)}%`;
+  pill.title = regime.guidance || "";
+}
+
 async function loadMarket() {
   try {
     const data = await getJSON("/api/market");
-    const pill = $("#marketPill");
-    pill.className = `market-pill ${data.tone}`;
-    pill.querySelector("span").textContent = `市场环境 · ${data.regime} ${data.score}分`;
-    pill.title = data.guidance;
-  } catch { $("#marketPill span").textContent = "市场环境暂不可用"; }
+    updateMarketPill(data);
+  } catch { $("#marketPill span").textContent = "市场状态暂不可用"; }
 }
+
+/* -------------------------------- ETF 配置 --------------------------------- */
+/*
+ * 数据来源只有一个：/api/allocation → reports/etf/latest.json。
+ * 页面不做任何权重计算，也不把"信号日"当成"成交日"——两者在产物里是两个字段，
+ * 这里分开显示，避免读者以为收盘价就能成交。
+ */
+
+const ALLOC_RULE_TEXT = {
+  enter: "入场",
+  hold: "持有",
+  stop: "触发止损",
+  mom_negative: "动量转负",
+  below_ma_slow: "跌破 MA120",
+  entry_filter: "未满足入场",
+  warmup: "历史不足",
+  no_price: "无行情",
+};
+
+function allocYesNo(flag) {
+  if (flag === true) return '<span class="alloc-yes">是</span>';
+  if (flag === false) return '<span class="alloc-no">否</span>';
+  return "—";
+}
+
+function allocBar(weight, cash = false) {
+  const width = Math.max(2, Math.min(100, Math.round(Number(weight || 0) * 100)));
+  return `<span class="alloc-bar${cash ? " cash" : ""}" style="width:${width}%"></span>`;
+}
+
+function renderAllocation(data) {
+  const body = $("#allocationBody");
+  const meta = $("#allocMeta");
+  if (!data || !data.available) {
+    meta.textContent = data?.reason || "配置数据不可用";
+    body.innerHTML = `<div class="alloc-empty">${escapeHtml(data?.hint || "运行 python -m etf_allocation 生成 reports/etf/latest.json")}</div>`;
+    return;
+  }
+  const rules = data.rules || {};
+  const cash = data.cash || {};
+  const backtest = data.backtest || {};
+  const bt = backtest.metrics || {};
+  const paper = data.paper || {};
+  const fill = data.fill_status === "effective"
+    ? `已生效 ${escapeHtml(data.fill_date || "")}`
+    : "待下一交易日开盘（T+1）";
+
+  meta.innerHTML = [
+    `信号日 ${escapeHtml(data.signal_date || "—")}`,
+    `执行 ${fill}`,
+    `规则 ${escapeHtml(data.rule_version || "—")}`,
+    `数据 ${escapeHtml(data.data_version || "—")}`,
+  ].join(" · ");
+
+  const pills = [
+    ["总暴露", `${formatNumber((data.exposure || 0) * 100, "%", 1)}`, `${(data.holdings || []).length} 条腿入选`],
+    ["现金腿", `${formatNumber((cash.weight || 0) * 100, "%", 1)}`, `${cash.symbol || ""} 年化 ${formatNumber((cash.yield_60d_annual || 0) * 100, "%", 2)}`],
+    ["权重约束", data.constraints?.ok ? "通过" : "未通过", `和 ${formatNumber(data.weights_sum, "", 3)} · 单腿上限 ${Math.round((rules.max_weight || 0.3) * 100)}%`],
+    ["纸面跟踪", data.observation?.status === "ready" ? `${paper.n_periods} 期` : "观察期", paper.available ? `净 ${signed(paper.cumulative_net_pct, "%")} · 成本 ${formatNumber(paper.avg_cost_bps, "bp", 1)}` : (data.observation?.note || paper.note || "")],
+  ].map(([label, value, hint]) => `<div class="alloc-pill"><small>${label}</small><strong>${value}</strong><em>${escapeHtml(hint || "")}</em></div>`).join("");
+
+  const rows = (data.holdings || []).map((leg) => {
+    const reason = leg.reason || {};
+    return `<tr>
+      <td><span class="alloc-leg-name">${escapeHtml(leg.name)}</span><span class="alloc-leg-meta">${escapeHtml(leg.symbol)} · ${escapeHtml(leg.class || "")}</span></td>
+      <td><span class="alloc-weight">${formatNumber(leg.weight * 100, "%", 1)}</span>${allocBar(leg.weight)}</td>
+      <td class="${changeClass((reason.momentum_12_1 || 0) * 100)}">${signed((reason.momentum_12_1 || 0) * 100, "%", 1)}</td>
+      <td>${allocYesNo(reason.above_ma60)}</td>
+      <td>${allocYesNo(reason.above_ma120)}</td>
+      <td>${signed((reason.drawdown_from_high || 0) * 100, "%", 2)}</td>
+      <td>${escapeHtml(ALLOC_RULE_TEXT[reason.rule] || reason.rule || "—")}</td>
+    </tr>`;
+  }).join("");
+
+  const cashRow = `<tr>
+    <td><span class="alloc-leg-name">${escapeHtml(cash.name || "现金腿")}</span><span class="alloc-leg-meta">${escapeHtml(cash.symbol || "")} · 未分配部分</span></td>
+    <td><span class="alloc-weight">${formatNumber((cash.weight || 0) * 100, "%", 1)}</span>${allocBar(cash.weight, true)}</td>
+    <td colspan="5" class="alloc-leg-meta">货币 ETF，按自身 60 日收益计息（年化 ${formatNumber((cash.yield_60d_annual || 0) * 100, "%", 2)}），不假设 0 收益</td>
+  </tr>`;
+
+  const changes = (data.changes || []).length
+    ? `<p class="alloc-sub">对照 ${escapeHtml(data.changes_basis || "上次调仓")}：</p><div class="alloc-changes">${data.changes.map((c) =>
+        `<span class="alloc-change">${escapeHtml(c.name)} <b>${c.action}</b> ${signed(c.delta * 100, "pp", 1)}（${formatNumber(c.before * 100, "%", 0)} → ${formatNumber(c.after * 100, "%", 0)}）</span>`).join("")}</div>`
+    : `<p class="alloc-sub">${escapeHtml(data.changes_basis || "首期，无对照")}：权重无变化。</p>`;
+
+  const rejected = (data.rejected || []).length
+    ? `<p class="alloc-sub">未入选：${data.rejected.map((r) =>
+        `${escapeHtml(r.name)}（${escapeHtml(ALLOC_RULE_TEXT[r.reason] || r.reason || "")}）`).join("、")}</p>`
+    : "";
+
+  const stale = Object.keys(data.stale || {}).length
+    ? `<p class="alloc-sub">已剔除过期标的：${Object.entries(data.stale).map(([code, last]) => `${escapeHtml(code)}（末行 ${escapeHtml(last || "无数据")}）`).join("、")}</p>`
+    : "";
+
+  const btKv = [
+    ["区间", `${escapeHtml(backtest.start || "—")} ~ ${escapeHtml(backtest.end || "—")}`],
+    ["年化", signed(bt.cagr, "%", 2)],
+    ["净 Sharpe", formatNumber(bt.sharpe, "", 2)],
+    ["最大回撤", signed(bt.max_drawdown, "%", 2)],
+    ["年换手", formatNumber(bt.annual_turnover, "%", 0)],
+    ["成本拖累", formatNumber(bt.cost_bps, "bp", 0)],
+    ["同池等权 Sharpe", formatNumber((backtest.benchmarks || {}).EW?.sharpe, "", 2)],
+    ["最近调仓", data.last_rebalance ? `${escapeHtml(data.last_rebalance.signal_date)} → ${escapeHtml(data.last_rebalance.fill_date || "待成交")}` : "—"],
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+
+  const paperBlock = paper.available
+    ? `<p class="alloc-sub">纸面 ${paper.n_periods} 期：净 ${signed(paper.cumulative_net_pct, "%")}，
+        平均单边换手 ${formatNumber(paper.avg_one_way_turnover, "", 3)}，平均成本 ${formatNumber(paper.avg_cost_bps, "bp", 1)}
+        （回测均值 ${formatNumber(paper.backtest_avg_cost_bps, "bp", 1)}，口径一致：${paper.cost_consistent ? "是" : "否"}）。</p>`
+    : `<p class="alloc-sub">${escapeHtml(paper.note || "纸面跟踪尚未开始")}</p>`;
+
+  const risk = [(data.observation?.status === "observing" ? data.observation.note : ""), ...(data.risk || [])]
+    .filter(Boolean)
+    .map((note) => `<li>${escapeHtml(note)}</li>`).join("");
+
+  body.innerHTML = `
+    <div class="alloc-pills">${pills}</div>
+    <div class="alloc-grid">
+      <div class="alloc-card">
+        <h3>本期目标权重（按 ${escapeHtml(data.signal_date || "")} 收盘信号）</h3>
+        <table class="alloc-table">
+          <thead><tr><th>标的</th><th>权重</th><th>12–1 动量</th><th>MA60</th><th>MA120</th><th>回撤</th><th>判定</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" class="alloc-leg-meta">本期没有腿通过确认，全部在现金腿</td></tr>'}${cashRow}</tbody>
+        </table>
+        ${changes}
+        ${rejected}
+        ${stale}
+      </div>
+      <div class="alloc-card">
+        <h3>回测与执行口径</h3>
+        <div class="alloc-kv">${btKv}</div>
+        ${paperBlock}
+        <h3 style="margin-top:18px">风险提示</h3>
+        <ul class="alloc-note-list">${risk}</ul>
+      </div>
+    </div>`;
+
+  const disclaimer = $("#allocDisclaimer");
+  if (disclaimer && data.disclaimer) disclaimer.textContent = data.disclaimer;
+}
+
+async function loadAllocation() {
+  const body = $("#allocationBody");
+  try {
+    const data = await getJSON("/api/allocation");
+    state.allocation = data;
+    renderAllocation(data);
+  } catch (error) {
+    $("#allocMeta").textContent = "配置数据读取失败";
+    body.innerHTML = `<div class="alloc-empty">${escapeHtml(error.message)}</div>`;
+  }
+}
+
 
 /* ---------------------------------- 事件绑定 --------------------------------- */
 
@@ -997,6 +1253,7 @@ window.addEventListener("resize", () => {
 initSearchSuggest();
 renderWatchlist();
 loadMarket();
+loadAllocation();
 if (state.watchlist.length) refreshWatchlist();
 
 window.addEventListener("popstate", () => {

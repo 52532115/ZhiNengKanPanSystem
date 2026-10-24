@@ -1,0 +1,187 @@
+{
+  "schema": "reports-index/1",
+  "release": "v1.5-three-fields",
+  "generated_at": "2026-10-24",
+  "policy": {
+    "tracked": "本仓库只跟踪这一份登记表；reports/** 下所有 HTML/JSON/PNG 都是可重生成产物，不进版本库",
+    "rebuild": "按 producer 列出的命令重建；数据集与随机种子写在各自的 params/meta 里",
+    "verdict": "结论只对 producer 指定的数据集与口径成立，跨口径不外推",
+    "vocabulary": [
+      "通过",
+      "未通过",
+      "数据不足"
+    ]
+  },
+  "entries": [
+    {
+      "id": "walkforward",
+      "title": "单一评分 walk-forward（v1→v3，已下线）",
+      "path": "reports/",
+      "producer": "python walkforward.py --offline",
+      "dataset": "沪深300 当前成分（8 只样本 / 60 只扩样本）",
+      "generated_at": "2026-10-21",
+      "verdict": "未通过",
+      "note": "历史口径：合并 IC 20 日 −0.047、横截面 IC −0.041（仅 42% 交易日为正）；仅用于旧分数回放对照"
+    },
+    {
+      "id": "walkforward_hs300_60",
+      "title": "扩样本复核（60 只沪深300）",
+      "path": "reports/hs300_60",
+      "producer": "python walkforward.py --offline --universe hs300 --max-symbols 60 --outdir reports/hs300_60",
+      "dataset": "沪深300 当前成分 60 只",
+      "generated_at": "2026-10-21",
+      "verdict": "未通过",
+      "note": "扩样本后 20 日合并 IC 转为 −0.047，8 只样本的正 IC 不可外推"
+    },
+    {
+      "id": "walkforward_stride5",
+      "title": "步长 5 稳健性复核",
+      "path": "reports/robust_stride5",
+      "producer": "python walkforward.py --stride 5 --outdir reports/robust_stride5",
+      "dataset": "沪深300 当前成分（步长 5）",
+      "generated_at": "2026-10-21",
+      "verdict": "未通过",
+      "note": "降低重叠窗口后结论不变：负 IC 不是抽样噪声"
+    },
+    {
+      "id": "xsec",
+      "title": "横截面分位模型与净值回测",
+      "path": "reports/xsec",
+      "producer": "python xsec.py --offline",
+      "dataset": "34 只沪深300 抽样，60/40 时间切分",
+      "generated_at": "2026-10-22",
+      "verdict": "未通过",
+      "note": "验证集 −9.64% vs 等权 −2.24%，11 个 20 日窗口仅 4 个超额为正"
+    },
+    {
+      "id": "turnover",
+      "title": "降换手与成本控制",
+      "path": "reports/turnover",
+      "producer": "python turnover_study.py",
+      "dataset": "34 只沪深300，缓冲带 + 分位平滑",
+      "generated_at": "2026-10-22",
+      "verdict": "未通过",
+      "note": "换手 2548%→740%、Sharpe 0.313→0.886；20bp 口径下仍低于等权 0.922（差 0.036）"
+    },
+    {
+      "id": "scoring",
+      "title": "打分链路 v4（isotonic 校准 + 稳定性权重）",
+      "path": "reports/scoring",
+      "producer": "python score_study.py --offline",
+      "dataset": "59 只个股，2015–2021 训练 / 2022–2026 验证",
+      "generated_at": "2026-10-22",
+      "verdict": "未通过",
+      "note": "换手与 ΔIC 达标，校准 ECE 0.011 未过、样本外 IC 区间覆盖 0，未接入生产"
+    },
+    {
+      "id": "wfv2",
+      "title": "5 折 purged walk-forward v2",
+      "path": "reports/wfv2",
+      "producer": "python wfv2_study.py --offline",
+      "dataset": "59 只个股，12 因子电池",
+      "generated_at": "2026-10-22",
+      "verdict": "未通过",
+      "note": "4/5 折为正、ICIR 0.35→0.36，但换手 1697% 未达 800% 门槛"
+    },
+    {
+      "id": "regime",
+      "title": "regime 自适应暴露",
+      "path": "reports/regime",
+      "producer": "python regime_study.py",
+      "dataset": "沪深300 基准 + 市场宽度，59 只个股",
+      "generated_at": "2026-10-22",
+      "verdict": "通过",
+      "note": "最大回撤 −34.85%→−22.00%（改善 37%）；代价是年化 29.30%→23.37%（−5.93pp）"
+    },
+    {
+      "id": "protocol",
+      "title": "评估协议（5 折 + lockbox + 多重检验台账）",
+      "path": "reports/protocol",
+      "producer": "python -m protocol --offline",
+      "dataset": "34 只个股，开发 1665 天 / lockbox 486 天",
+      "generated_at": "2026-10-22",
+      "verdict": "未通过",
+      "note": "目标 B IC +0.012；57 条试验 BH-FDR 后 0 条显著，随机信号覆盖 90%"
+    },
+    {
+      "id": "protocol_pit",
+      "title": "评估协议（PIT 池）",
+      "path": "reports/protocol_pit",
+      "producer": "python -m protocol --pit pit-v1 --offline",
+      "dataset": "494 只 PIT 面板，开发 1852 天 / lockbox 486 天",
+      "generated_at": "2026-10-24",
+      "verdict": "未通过",
+      "note": "目标 B IC +0.0250 [+0.0016,+0.0483] 首次不含 0，但净净值 +2.53% vs 等权 +55.30%（−52.77pp）"
+    },
+    {
+      "id": "factors",
+      "title": "新因子族研究（60 只当前成分）",
+      "path": "reports/factors",
+      "producer": "python factor_study.py --offline",
+      "dataset": "60 只沪深300 当前成分，3110 根日线",
+      "generated_at": "2026-10-22",
+      "verdict": "通过",
+      "note": "风险族 +0.030（t 3.17）与流动性族通过；反转被成本吃掉、动量被族平均稀释，模型 0.021→0.033"
+    },
+    {
+      "id": "factors_pit",
+      "title": "新因子族研究（PIT 池）",
+      "path": "reports/factors_pit",
+      "producer": "python factor_study.py --pit pit-v1 --iters 400",
+      "dataset": "494 只 PIT 面板，1,133,979 条标的日",
+      "generated_at": "2026-10-24",
+      "verdict": "通过",
+      "note": "风险 0.0278（t 4.3）、流动性 0.0415（t 5.41）、价格形态 0.0248（t 4.31）通过；模型 0.033→0.0481"
+    },
+    {
+      "id": "pool",
+      "title": "PIT 池层验证（四组对比）",
+      "path": "reports/pool",
+      "producer": "python -m research.pool_validate --version pit-v1 --target 300 --iters 400",
+      "dataset": "pit-v1：494 只日线 / 1,268,798 行 / 2018-01 → 2026-10",
+      "generated_at": "2026-10-24",
+      "verdict": "通过",
+      "note": "有效宽度 131、行业前三 29.4%、8.78 年、IC 差异 4.1% 通过；净值差异 62.6% 判「可解释」（旧口径虚高）"
+    },
+    {
+      "id": "fields",
+      "title": "三字段独立验证（60 只当前成分）",
+      "path": "reports/fields",
+      "producer": "python validate_fields.py --offline",
+      "dataset": "60 只个股 + 8 只 ETF，锁箱 2024-07 起",
+      "generated_at": "2026-10-24",
+      "verdict": "未通过",
+      "note": "descriptor 波动 ρ −0.294（阈值 −0.3）、selection 锁箱 IC +0.025 [−0.031,+0.086] 覆盖 0；regime +13.36pp 通过"
+    },
+    {
+      "id": "fields_pit",
+      "title": "三字段独立验证（PIT 池）",
+      "path": "reports/fields_pit",
+      "producer": "python validate_fields.py --pit pit-v1",
+      "dataset": "494 只 PIT 面板 + 8 只 ETF",
+      "generated_at": "2026-10-24",
+      "verdict": "未通过",
+      "note": "descriptor ρ −0.251、selection 锁箱 IC +0.0166 [−0.0229,+0.0582]；regime +12.54pp 通过"
+    },
+    {
+      "id": "etf",
+      "title": "跨资产 ETF 配置（12 腿）",
+      "path": "reports/etf",
+      "producer": "python -m etf_allocation",
+      "dataset": "12 腿 ETF + 511880 现金腿，2015-01 → 2026-10",
+      "generated_at": "2026-10-24",
+      "verdict": "通过",
+      "note": "净 Sharpe 1.287 vs 等权 0.512，最大回撤 −9.94% vs −30.02%；纸面跟踪处于观察期（<3 期）"
+    },
+    {
+      "id": "altdata",
+      "title": "基本面 / 资金流 / 另类数据增量 IC",
+      "path": "reports/altdata",
+      "producer": "python -m research.fetch_alt && python fundamental_study.py",
+      "dataset": "60 只个股，5 个维度 17 个因子",
+      "generated_at": "2026-10-23",
+      "verdict": "通过",
+      "note": "4/12 个可评估因子增量 IC 区间不含 0（最好：融资余额占比 +0.0392）；但区间宽 ±0.03，只够回答「该不该接」"
+    }
+  ]
+}
