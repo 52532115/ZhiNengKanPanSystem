@@ -2,10 +2,12 @@ import math
 import unittest
 
 from analyzer import (
+    DEFAULT_WEIGHTS,
     FACTOR_META,
     WEIGHTS_V1,
     WEIGHTS_V2,
     analyze,
+    legacy_view,
     ema,
     max_drawdown,
     rsi,
@@ -42,10 +44,18 @@ class IndicatorTests(unittest.TestCase):
     def test_drawdown(self):
         self.assertAlmostEqual(max_drawdown([10, 12, 9, 11]), -25.0)
 
-    def test_analysis_schema_and_score(self):
+    def test_analysis_exposes_three_fields_without_composite_score(self):
         bullish = analyze(make_history(1.0))
         bearish = analyze(make_history(-1.0))
-        self.assertGreater(bullish["score"], bearish["score"])
+        # 单一分数与"由分数推出的观点"已经下线，接口里不应再出现
+        for key in ("score", "view", "tone", "summary", "position_guidance", "factors"):
+            self.assertNotIn(key, bullish)
+        self.assertEqual(set(bullish["fields"]), {"descriptor", "selection", "regime"})
+        self.assertGreater(
+            bullish["fields"]["descriptor"]["score"], bearish["fields"]["descriptor"]["score"]
+        )
+        self.assertEqual(bullish["fields"]["descriptor"]["use"], "description")
+        self.assertFalse(bullish["fields"]["selection"]["available"])
         self.assertEqual(len(bullish["chart"]), 180)
         self.assertIn("volume_ma5", bullish["chart"][-1])
         self.assertIn("volume_ma10", bullish["chart"][-1])
@@ -64,25 +74,20 @@ class IndicatorTests(unittest.TestCase):
         self.assertIsNone(result["metrics"]["pe_ttm"])
         self.assertIn("底层指数估值", result["methodology"])
 
-    def test_score_factors_are_the_single_source_of_truth(self):
+    def test_legacy_score_factors_are_self_consistent(self):
         history = make_history(1.0)
         score, factors = score_factors(history)
-        result = analyze(history)
-        self.assertEqual(score, result["score"])
         self.assertEqual([factor["key"] for factor in factors], list(FACTOR_META))
         self.assertEqual(50 + sum(factor["delta"] for factor in factors), score)
         self.assertTrue(all(factor["label"] and factor["weight"] for factor in factors))
-        self.assertEqual(result["factors"], factors)
-        expected_reasons = [factor["reason"] for factor in factors if factor["reason"]][:7]
-        self.assertEqual([reason["text"] for reason in result["reasons"]], expected_reasons)
+        self.assertEqual(legacy_view(score), legacy_view(score))
 
     def test_weight_profiles_are_switchable(self):
         history = make_history(1.0)
         score_v1, factors_v1 = score_factors(history, WEIGHTS_V1)
         score_v2, factors_v2 = score_factors(history, WEIGHTS_V2)
-        self.assertEqual(score_v1, analyze(history, weights=WEIGHTS_V1)["score"])
-        self.assertEqual(score_v2, analyze(history)["score"])
         self.assertNotEqual(score_v1, score_v2)
+        self.assertEqual(score_v2, score_factors(history, DEFAULT_WEIGHTS)[0])
         self.assertEqual(score_v1, max(0, min(100, 50 + sum(f["delta"] for f in factors_v1))))
         self.assertEqual(weight_text(WEIGHTS_V2["rsi"]), "+3 / −3 / −2")
         self.assertEqual(factors_v2[0]["weight"], weight_text(WEIGHTS_V2["trend"]))

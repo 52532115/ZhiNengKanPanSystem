@@ -1,10 +1,23 @@
-"""Deterministic, explainable analysis for A-shares and listed funds."""
+"""Deterministic, explainable analysis for A-shares and listed funds.
+
+分层
+----
+- **指标层**：``sma`` / ``ema`` / ``rsi`` / ``max_drawdown`` 等纯函数，因果、可回放。
+- **描述层**：``analyze()`` 只产出三字段口径（见 ``fields.py``）——趋势状态（描述）、
+  横截面分位（选股）、市场 regime（择时）。**不再有综合分**，也没有"评分 ≥75 所以
+  偏积极"这类跨口径推断。
+- **历史层**：``score_factors()`` 保留给 ``walkforward.py`` / ``xsec.py`` 做旧口径
+  回放与对照，属于研究用途，不进入前端。它是单一分数，正因为如此才必须注明：
+  它同时混合了趋势、动量与风险，不能拿它的数值去回答"该不该买"。
+"""
 
 from __future__ import annotations
 
 import math
 import statistics
 from typing import Any
+
+import fields
 
 
 def sma(values: list[float], period: int) -> list[float | None]:
@@ -71,8 +84,10 @@ def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
 
-# 九类评分规则的唯一事实来源：标签、权重、打分逻辑都只在这里维护。
-# 权重顺序与 score_factors 的分支一一对应：主加分 / 主扣分 / 次扣分。
+# --------------------------------------------------------------------------- #
+# 旧口径（研究用途）：九类规则加权成单一分数
+# --------------------------------------------------------------------------- #
+
 BASE_SCORE = 50
 
 FACTOR_LABELS: dict[str, str] = {
@@ -88,7 +103,6 @@ FACTOR_LABELS: dict[str, str] = {
     "drawdown": "近 120 日回撤",
 }
 
-# v1：最初的拍脑袋权重，保留用于复现和对照。
 WEIGHTS_V1: dict[str, tuple[int, ...]] = {
     "trend": (9, -9),
     "align": (9, -7),
@@ -101,8 +115,6 @@ WEIGHTS_V1: dict[str, tuple[int, ...]] = {
     "drawdown": (-6,),
 }
 
-# v2：按超额收益单因子 edge 重估——下调 RSI / 均线对齐等噪声项，
-# 上调波动率、MACD 与 MA120 等方向更稳定的项；总振幅同时收窄。
 WEIGHTS_V2: dict[str, tuple[int, ...]] = {
     "trend": (8, -8),
     "align": (3, -3),
@@ -115,8 +127,6 @@ WEIGHTS_V2: dict[str, tuple[int, ...]] = {
     "drawdown": (-7,),
 }
 
-# v3：在 v2 基础上加入相对强弱因子（20 日超额收益 ±3% 触发，±6 分）。
-# 基准行情通过 analyze(benchmark=...) 注入；缺失时该因子记 0 分。
 WEIGHTS_V3: dict[str, tuple[int, ...]] = {
     **WEIGHTS_V2,
     "rs": (6, -6),
@@ -132,11 +142,9 @@ DEFAULT_WEIGHTS = WEIGHT_PROFILES[DEFAULT_PROFILE]
 
 
 def weight_text(values: tuple[int, ...]) -> str:
-    """把权重元组渲染成前端/报告里的 ``+9 / −9`` 文案。"""
     return " / ".join(f"{value:+d}".replace("-", "−") for value in values)
 
 
-# 兼容旧调用：默认档案的 (标签, 权重文案)。
 FACTOR_META: dict[str, tuple[str, str]] = {
     key: (label, weight_text(DEFAULT_WEIGHTS[key])) for key, label in FACTOR_LABELS.items()
 }
@@ -176,11 +184,10 @@ def score_factors(
     weights: dict[str, tuple[int, ...]] | None = None,
     benchmark: dict[str, Any] | None = None,
 ) -> tuple[int, list[dict[str, Any]]]:
-    """把评分拆成单因子贡献，返回 ``(总分, 因子列表)``。
+    """旧口径的单一分数：``50 + Σdelta``。
 
-    总分 = 50 + Σdelta，与 ``analyze()`` 输出的 score 完全一致；
-    ``reason`` 非空的因子会进入前端“判断依据”，空值只参与打分。
-    ``weights`` 可切换权重档案，walkforward 用它比较不同版本的排序能力。
+    仅供 ``walkforward.py`` / ``xsec.py`` 回放与对照。前端不展示这个分数——
+    它把趋势、动量、波动、回撤混成一个数，天然无法区分"描述"和"择时"。
     """
     profile = weights or DEFAULT_WEIGHTS
     rows = history["rows"]
@@ -294,28 +301,107 @@ def score_factors(
     return max(0, min(100, round(total))), factors
 
 
+def legacy_view(score: int) -> str:
+    """旧口径的五档文案，只给研究脚本对齐分桶用，不再出现在页面上。"""
+    if score >= 75:
+        return "偏积极"
+    if score >= 60:
+        return "谨慎偏多"
+    if score >= 45:
+        return "中性观察"
+    if score >= 30:
+        return "谨慎"
+    return "高风险"
+
+
+# --------------------------------------------------------------------------- #
+# 描述层：三字段
+# --------------------------------------------------------------------------- #
+
+PRICE_DIGITS = {"stock": 2, "etf": 3, "fund": 3, "index": 2}
+
+
+def _component_reasons(descriptor: dict[str, Any], history: dict[str, Any]) -> list[dict[str, str]]:
+    """把分量子分翻译成"描述性"句子：只说状态，不给方向或仓位。"""
+    if not descriptor.get("available"):
+        return []
+    rows = history["rows"]
+    closes = [row["close"] for row in rows]
+    reasons: list[dict[str, str]] = []
+    for component in descriptor["components"]:
+        value = component["score"]
+        if value is None:
+            continue
+        key = component["key"]
+        strong = value >= 60
+        weak = value <= 40
+        if not (strong or weak):
+            continue
+        if key == "trend":
+            gap = (closes[-1] / (sum(closes[-20:]) / 20) - 1) * 100
+            reasons.append({
+                "type": "positive" if strong else "negative",
+                "text": f"收盘价{'高于' if gap >= 0 else '低于'} 20 日均线 {abs(gap):.1f}%，短期趋势"
+                        f"{'占优' if strong else '偏弱'}",
+            })
+        elif key == "align":
+            reasons.append({
+                "type": "positive" if strong else "negative",
+                "text": f"20 日均线{'位于' if strong else '未站上'} 60 日均线之上，中期结构"
+                        f"{'偏多' if strong else '仍待修复'}",
+            })
+        elif key == "long":
+            reasons.append({
+                "type": "positive" if strong else "negative",
+                "text": f"价格{'在' if strong else '在'} 120 日均线{'上方' if strong else '下方'}，长期位置"
+                        f"{'偏高' if strong else '偏低'}",
+            })
+        elif key == "vol":
+            reasons.append({
+                "type": "warning" if weak else "neutral",
+                "text": f"20 日波动率处于自身一年{'高位' if weak else '低位'}，"
+                        f"风险状态{'偏紧' if weak else '偏松'}",
+            })
+        elif key == "drawdown":
+            peak = max(closes[-252:])
+            depth = (closes[-1] / peak - 1) * 100
+            reasons.append({
+                "type": "warning" if weak else "neutral",
+                "text": f"距一年高点 {depth:+.1f}%，回撤在一年的{'最深区间' if weak else '较浅区间'}",
+            })
+    return reasons[:6]
+
+
 def analyze(
     history: dict[str, Any],
     quote: dict[str, Any] | None = None,
-    weights: dict[str, tuple[int, ...]] | None = None,
+    *,
     benchmark: dict[str, Any] | None = None,
+    calibration: dict | None = None,
+    pool_percentiles: dict[str, float] | None = None,
+    regime: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    """三字段分析结果。
+
+    - ``fields.descriptor``：趋势状态（同类分位 + 自身分位 + 档位 + 分量）
+    - ``fields.selection``：当日同池分位（没有池子就明确标为不可用）
+    - ``fields.regime``：市场状态与总暴露上限（没有基准就标为不可用）
+
+    返回体里没有 ``score`` / ``view`` / ``position_guidance``：单一分数和它的
+    仓位建议已经下线，避免"评分 75+ 所以看多"这类跨口径推断。
+    """
     rows = history["rows"]
     asset_type = history.get("asset_type", "stock")
     asset_label = {"stock": "A 股", "etf": "ETF", "fund": "场内基金", "index": "指数"}.get(asset_type, "证券")
     is_fund = asset_type in ("etf", "fund")
-    price_digits = 3 if is_fund else 2
+    price_digits = PRICE_DIGITS.get(asset_type, 2)
     closes = [row["close"] for row in rows]
     volumes = [row["volume"] for row in rows]
     dates = [row["date"] for row in rows]
-    ma5 = sma(closes, 5)
     ma20 = sma(closes, 20)
     ma60 = sma(closes, 60)
-    ma120 = sma(closes, 120)
     rsi14 = rsi(closes)
-    macd_fast = ema(closes, 12)
-    macd_slow = ema(closes, 26)
-    dif = [fast - slow for fast, slow in zip(macd_fast, macd_slow)]
+    dif = [fast - slow for fast, slow in zip(ema(closes, 12), ema(closes, 26))]
     dea = ema(dif, 9)
     histogram = [(d - e) * 2 for d, e in zip(dif, dea)]
 
@@ -330,42 +416,46 @@ def analyze(
     volume_ma5_series = sma(volumes, 5)
     volume_ma10_series = sma(volumes, 10)
 
-    score, factors = score_factors(history, weights, benchmark)
-    reasons = [
-        {"type": factor["tone"], "text": factor["reason"]}
-        for factor in factors
-        if factor["reason"]
-    ]
-    if score >= 75:
-        view, tone = "偏积极", "positive"
-        summary = "趋势与动能形成共振，但更适合等待回踩确认后分批关注。"
-        position = "研究仓可从计划资金的 5%–10% 试探，避免一次性重仓。"
-    elif score >= 60:
-        view, tone = "谨慎偏多", "positive"
-        summary = "多项指标正在改善，仍需价格与成交量继续确认。"
-        position = "以观察或小仓跟踪为主，突破关键位后再评估是否增加暴露。"
-    elif score >= 45:
-        view, tone = "中性观察", "neutral"
-        summary = "多空信号分化，当前胜率优势不清晰。"
-        position = "不追涨，等待趋势、动量和量能出现一致方向。"
-    elif score >= 30:
-        view, tone = "谨慎", "negative"
-        summary = "弱势信号较多，应优先控制回撤而非博弈反弹。"
-        position = "已有仓位可复核止损纪律；无仓位宜等待结构修复。"
+    descriptor = fields.describe(
+        history,
+        asset_type=asset_type,
+        calibration=calibration,
+        pool_percentiles=pool_percentiles,
+    )
+    if pool_percentiles:
+        selection = fields.selection_field(
+            history["symbol"],
+            pool_percentiles,
+            as_of=dates[-1],
+            evidence=None,
+        )
     else:
-        view, tone = "高风险", "negative"
-        summary = "趋势和风险指标均不理想，暂不具备较好的风险收益特征。"
-        position = "避免新增暴露，先等待价格重回关键均线并缩小波动。"
+        selection = {
+            "field": fields.SELECTION,
+            "use": "selection",
+            "available": False,
+            "as_of": dates[-1],
+            "percentile": None,
+            "pool_size": 0,
+            "label": "当日同池分位",
+            "reason": "单标的查询没有横截面，池内分位不可计算；请在自选池里查看",
+            "evidence": {"status": "untested", "label": "未验证",
+                         "detail": "该字段尚未通过样本外检验"},
+            "usage": fields.usage_note(fields.SELECTION),
+        }
 
-    if is_fund:
-        if score >= 75:
-            position = "可作为组合配置候选分批观察，并结合底层指数估值与行业集中度控制仓位。"
-        elif score >= 60:
-            position = "以小仓跟踪为主，确认突破后再评估；主题型 ETF 应设置更低的仓位上限。"
-        elif score >= 45:
-            position = "暂不追涨，等待趋势与量能共振，并与同类 ETF 比较费率、规模和流动性。"
-        else:
-            position = "弱势阶段优先控制组合回撤，等待净值趋势重新站上关键均线。"
+    if regime is None and benchmark is not None:
+        regime = fields.regime(benchmark)
+    if regime is None:
+        regime = {
+            "field": fields.REGIME,
+            "use": "timing",
+            "available": False,
+            "reason": "未注入基准行情，无法判断市场状态",
+            "usage": fields.usage_note(fields.REGIME),
+        }
+
+    reasons = _component_reasons(descriptor, history)
 
     support_candidates = [value for value in (ma20[-1], ma60[-1], min(closes[-20:])) if value]
     resistance_candidates = [max(closes[-20:]), max(row["high"] for row in rows[-60:])]
@@ -409,11 +499,11 @@ def analyze(
         "as_of": dates[-1],
         "price": display_price,
         "day_change": (quote or {}).get("pct_change") if quote else rows[-1]["pct_change"],
-        "score": score,
-        "view": view,
-        "tone": tone,
-        "summary": summary,
-        "position_guidance": position,
+        "fields": {
+            "descriptor": descriptor,
+            "selection": selection,
+            "regime": regime,
+        },
         "levels": {
             "support": _round(support, price_digits),
             "resistance": _round(resistance, price_digits),
@@ -431,15 +521,34 @@ def analyze(
             "pe_ttm": None if is_fund else (quote or {}).get("pe_ttm"),
             "pb": None if is_fund else (quote or {}).get("pb"),
         },
-        "reasons": reasons[:7],
-        "factors": factors,
+        "reasons": reasons,
         "chart": chart,
-        "methodology": (
-            "ETF 评分基于日线趋势、MACD、RSI、量价、波动率与最大回撤；不等同于底层指数估值。"
-            if is_fund
-            else "基于日线趋势、MACD、RSI、量价、波动率与最大回撤的规则评分，不使用未来数据。"
-        ),
+        "usage_notes": {
+            "descriptor": fields.usage_note(fields.DESCRIPTOR),
+            "selection": fields.usage_note(fields.SELECTION),
+            "regime": fields.usage_note(fields.REGIME),
+        },
+        "methodology": descriptor_methodology(is_fund=is_fund),
     }
+
+
+def descriptor_methodology(*, is_fund: bool = False) -> str:
+    """描述字段的方法论文案。
+
+    分量清单**从 ``fields.DESCRIPTOR_WEIGHTS`` 生成**，不手写：这样"文案说含动量、
+    实现里没有"这类漂移在结构上就不可能发生。动量被移除是有原因的（见下），
+    原因本身要写在文案里，而不是只留在注释里。
+    """
+    parts = "、".join(fields.DESCRIPTOR_LABELS[key] for key in fields.DESCRIPTOR_WEIGHTS)
+    text = (
+        f"趋势状态由 {len(fields.DESCRIPTOR_WEIGHTS)} 个分量加权合成：{parts}。"
+        "不含 12–1 动量——动量与未来 20 日波动正相关（ρ≈+0.29），留在合成里会抵消"
+        "风险分量的指示，v1→v2 归因后已移除，动量归选股/择时口径使用。"
+        "只用截至当日的数据；它描述状态，不构成买卖信号。"
+    )
+    if is_fund:
+        text += "分位按 ETF 自己的历史分布校准，不等同于底层指数估值。"
+    return text
 
 
 def relative_strength(
@@ -556,15 +665,3 @@ def relative_strength(
         "note": note,
         "series": series,
     }
-
-
-def market_regime(index_analyses: list[dict[str, Any]]) -> dict[str, Any]:
-    average = round(sum(item["score"] for item in index_analyses) / len(index_analyses))
-    positive = sum(item["price"] > (item["metrics"]["ma20"] or item["price"]) for item in index_analyses)
-    if average >= 65 and positive >= 2:
-        regime, tone, guidance = "偏强", "positive", "市场风险偏好较好，可适度提高关注度，但仍应分散配置。"
-    elif average < 45 or positive == 0:
-        regime, tone, guidance = "偏弱", "negative", "市场环境不利，建议降低仓位上限并提高信号确认要求。"
-    else:
-        regime, tone, guidance = "震荡", "neutral", "指数信号分化，控制节奏并优先选择相对强势标的。"
-    return {"score": average, "regime": regime, "tone": tone, "guidance": guidance, "indexes": index_analyses}

@@ -33,7 +33,7 @@ from analyzer import (
     DEFAULT_WEIGHTS,
     FACTOR_LABELS,
     WEIGHT_PROFILES,
-    analyze,
+    legacy_view,
     max_drawdown,
     score_factors,
     weight_text,
@@ -259,8 +259,8 @@ def walk_forward(
     for index in range(warmup - 1, len(rows) - span):
         prefix = {**meta, "rows": rows[: index + 1]}
         # 基准传入完整序列也不会泄露：相对强弱只按 prefix 里的日期取交集。
-        result = analyze(prefix, weights=weights, benchmark=benchmark)
-        parts = {factor["key"]: factor["delta"] for factor in result["factors"]}
+        score, factors = score_factors(prefix, weights, benchmark)
+        parts = {factor["key"]: factor["delta"] for factor in factors}
         if (index - (warmup - 1)) % stride:
             continue
 
@@ -289,8 +289,8 @@ def walk_forward(
                 "symbol": meta["symbol"],
                 "name": meta["name"],
                 "date": entry_date,
-                "score": result["score"],
-                "view": result["view"],
+                "score": score,
+                "view": legacy_view(score),
                 "parts": parts,
                 "forward": forward,
             }

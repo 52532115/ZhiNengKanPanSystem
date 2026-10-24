@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from analyzer import analyze
+from analyzer import score_factors
 from walkforward import (
     BUCKETS,
     DEFAULT_SYMBOLS,
@@ -94,7 +94,7 @@ class ShadowScoreTests(unittest.TestCase):
             for count in (140, 260, 320):
                 history = make_history(count, drift=drift, wave=wave)
                 score, parts = score_breakdown(history)
-                self.assertEqual(score, analyze(history)["score"], f"drift={drift} count={count}")
+                self.assertEqual(score, score_factors(history)[0], f"drift={drift} count={count}")
                 self.assertEqual(
                     set(parts),
                     {
