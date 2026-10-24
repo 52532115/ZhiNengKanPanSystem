@@ -50,6 +50,7 @@ from analyzer import DEFAULT_WEIGHTS
 from market_data import MarketDataError
 from xsec import build_panel, fit_rank_model, metrics as nav_metrics, model_scores, screen_features
 from walkforward import REPORT_DIR, load_benchmark, load_universe
+from reporting import fmt
 
 ROOT = Path(__file__).resolve().parent
 DAYS = 2400          # 约 9.6 年，够 5 折 + 2 年 lockbox + 12-1 预热
@@ -1277,17 +1278,10 @@ def _board_mix(histories: Sequence[dict[str, Any]]) -> dict[str, int]:
 DASH = "—"
 
 
-def _fmt(value: float | None, digits: int = 3, suffix: str = "", signed: bool = True) -> str:
-    if value is None:
-        return DASH
-    template = f"{{:+.{digits}f}}" if signed else f"{{:.{digits}f}}"
-    return template.format(value) + suffix
-
-
 def _ci(stat: dict[str, Any], digits: int = 3) -> str:
     if stat.get("ci_low") is None:
         return DASH
-    return f"[{_fmt(stat['ci_low'], digits)}, {_fmt(stat['ci_high'], digits)}]"
+    return f"[{fmt(stat['ci_low'], digits=digits)}, {fmt(stat['ci_high'], digits=digits)}]"
 
 
 def _verdict(stat: dict[str, Any]) -> str:
@@ -1315,15 +1309,15 @@ def _target_pass(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
     verdicts["B"] = {
         "pass": bool(pooled["significant"] and stats["excess_vs_bench"] > 0),
         "why": (
-            f"IC {_fmt(pooled['mean'], 4)} 的 95% 区间 {_ci(pooled, 4)} "
+            f"IC {fmt(pooled['mean'], digits=4)} 的 95% 区间 {_ci(pooled, 4)} "
             f"{'不含 0' if pooled['significant'] else '覆盖 0'}；"
-            f"净净值相对等权 {_fmt(stats['excess_vs_bench'], 2, '%')}"
+            f"净净值相对等权 {fmt(stats['excess_vs_bench'], digits=2, suffix='%')}"
         ),
     }
     verdicts["A"] = {
         "pass": bool(strongest_a and strongest_a["significant"]),
         "why": (
-            f"最强风险标签 IC {_fmt(strongest_a['mean'])} 区间 {_ci(strongest_a)}"
+            f"最强风险标签 IC {fmt(strongest_a['mean'])} 区间 {_ci(strongest_a)}"
             if strongest_a else "风险标签无有效样本"
         ),
     }
@@ -1335,8 +1329,8 @@ def _target_pass(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
             and (calmar.get("strategy") or 0) > (calmar.get("benchmark") or 0)
         ),
         "why": (
-            f"回撤改善 {_fmt(target_c['drawdown_improvement'], 2, 'pct')}，"
-            f"切换成本 {_fmt(target_c['switch_cost_bps'], 0, 'bp/年')}，"
+            f"回撤改善 {fmt(target_c['drawdown_improvement'], digits=2, suffix='pct')}，"
+            f"切换成本 {fmt(target_c['switch_cost_bps'], digits=0, suffix='bp/年')}，"
             f"Calmar {calmar.get('strategy')} vs {calmar.get('benchmark')}"
         ) if target_c.get("available") else "regime 信号样本不足",
     }
@@ -1362,8 +1356,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## 0. 一句话结论",
         "",
-        f"- 目标 B（选股）：IC {_fmt(pooled['mean'], 4)}，95% 区间 {_ci(pooled, 4)} → "
-        f"**{_verdict(pooled)}**；净净值相对等权 {_fmt(stats['excess_vs_bench'], 2, '%')}。"
+        f"- 目标 B（选股）：IC {fmt(pooled['mean'], digits=4)}，95% 区间 {_ci(pooled, 4)} → "
+        f"**{_verdict(pooled)}**；净净值相对等权 {fmt(stats['excess_vs_bench'], digits=2, suffix='%')}。"
         f"通过标准：{'达标' if verdicts['B']['pass'] else '未达标'}。",
         f"- 目标 A（描述分）：{verdicts['A']['why']} → "
         f"通过标准：{'达标' if verdicts['A']['pass'] else '未达标'}。",
@@ -1395,7 +1389,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- 实测 IC 抽样标准差 σ = {power['sigma_ic']}（折内逐日 IC 的标准差；"
         f"理论下限 1/√N = {power['sigma_theory']}），"
         f"当前 {pooled['n_blocks']} 个独立块能检出的最小 IC ≈ "
-        f"**{_fmt(power['detectable_now'], 3)}**（α=0.05，power=0.8）。",
+        f"**{fmt(power['detectable_now'])}**（α=0.05，power=0.8）。",
         f"- 要检测 IC=0.03，需要 **{power['for_ic_003']['n_blocks']} 个独立 "
         f"{params['horizon']} 日周期**，约 {power['for_ic_003']['n_days']} 个交易日 / "
         f"{power['for_ic_003']['n_years']} 年——不是 20 个。",
@@ -1438,13 +1432,13 @@ def render_markdown(report: dict[str, Any]) -> str:
     for row in report["walkforward"]["folds"]:
         lines.append(
             f"| {row['fold']} | {row['test_start']} → {row['test_end']} | {row['n_train']} | "
-            f"{', '.join(row['features'])} | {_fmt(row['ic'], 4)} | "
-            f"[{_fmt(row['ci_low'], 4)}, {_fmt(row['ci_high'], 4)}] | {_fmt(row['p'], 3, '', False)} |"
+            f"{', '.join(row['features'])} | {fmt(row['ic'], digits=4)} | "
+            f"[{fmt(row['ci_low'], digits=4)}, {fmt(row['ci_high'], digits=4)}] | {fmt(row['p'], signed=False)} |"
         )
     lines += [
         "",
-        f"**汇总（跨折拼接）**：IC = **{_fmt(pooled['mean'], 4)}**，95% 区间 **{_ci(pooled, 4)}**，"
-        f"p = {_fmt(pooled['p'], 3, '', False)}，正 IC 日占比 {pooled['positive_rate']}% → "
+        f"**汇总（跨折拼接）**：IC = **{fmt(pooled['mean'], digits=4)}**，95% 区间 **{_ci(pooled, 4)}**，"
+        f"p = {fmt(pooled['p'], signed=False)}，正 IC 日占比 {pooled['positive_rate']}% → "
         f"**{_verdict(pooled)}**。",
         "",
         "### 3.1 净净值（T+1 开盘成交、扣费）",
@@ -1458,16 +1452,16 @@ def render_markdown(report: dict[str, Any]) -> str:
         ("等权基准（T+1，不计成本）", stats["benchmark"]),
     ):
         lines.append(
-            f"| {label} | {_fmt(stat['total_return'], 2, '%')} | {_fmt(stat['annual_return'], 2, '%')} | "
-            f"{_fmt(stat['max_drawdown'], 2, '%')} | {stat['sharpe'] if stat['sharpe'] is not None else DASH} | "
-            f"{_fmt(stat['annual_turnover'], 0, '%', False)} | {stat['cost_drag_bps']:.0f} |"
+            f"| {label} | {fmt(stat['total_return'], digits=2, suffix='%')} | {fmt(stat['annual_return'], digits=2, suffix='%')} | "
+            f"{fmt(stat['max_drawdown'], digits=2, suffix='%')} | {stat['sharpe'] if stat['sharpe'] is not None else DASH} | "
+            f"{fmt(stat['annual_turnover'], digits=0, suffix='%', signed=False)} | {stat['cost_drag_bps']:.0f} |"
         )
     blocked = stats["blocked"]
     lines += [
         "",
-        f"- 执行差异：同日收盘口径 {_fmt(stats['strategy_same_close']['total_return'], 2, '%')} → "
-        f"T+1 开盘口径 {_fmt(stats['strategy']['total_return'], 2, '%')}，"
-        f"差 **{_fmt(stats['execution_gap'], 2, '%')}**。"
+        f"- 执行差异：同日收盘口径 {fmt(stats['strategy_same_close']['total_return'], digits=2, suffix='%')} → "
+        f"T+1 开盘口径 {fmt(stats['strategy']['total_return'], digits=2, suffix='%')}，"
+        f"差 **{fmt(stats['execution_gap'], digits=2, suffix='%')}**。"
         + ("T+1 更差，这部分就是旧口径高估的量级。"
            if stats["execution_gap"] < 0
            else "这次 T+1 反而略好：执行口径的影响方向不稳定，"
@@ -1488,9 +1482,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["features"]:
         lines.append(
-            f"| {row['family']} | {row['key']} | {_fmt(row['mean'], 4)} | "
-            f"[{_fmt(row['ci_low'], 4)}, {_fmt(row['ci_high'], 4)}] | "
-            f"{_fmt(row['p'], 3, '', False)} | {_verdict(row)} |"
+            f"| {row['family']} | {row['key']} | {fmt(row['mean'], digits=4)} | "
+            f"[{fmt(row['ci_low'], digits=4)}, {fmt(row['ci_high'], digits=4)}] | "
+            f"{fmt(row['p'], signed=False)} | {_verdict(row)} |"
         )
     if report["importance"]:
         lines += [
@@ -1521,8 +1515,8 @@ def render_markdown(report: dict[str, Any]) -> str:
                        ("downside", "未来下行波动"), ("var95", "未来 5% VaR")):
         stat = target_a["metrics"][key]
         lines.append(
-            f"| {label} | {_fmt(stat['mean'], 4)} | {_ci(stat, 4)} | "
-            f"{_fmt(stat['p'], 3, '', False)} | {_verdict(stat)} |"
+            f"| {label} | {fmt(stat['mean'], digits=4)} | {_ci(stat, 4)} | "
+            f"{fmt(stat['p'], signed=False)} | {_verdict(stat)} |"
         )
 
     target_c = report["target_c"]
@@ -1535,17 +1529,17 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "| 指标 | regime 组合 | 满仓等权 | 差 |",
             "| --- | ---: | ---: | ---: |",
-            f"| 总收益 | {_fmt(target_c['strategy']['total_return'], 2, '%')} | "
-            f"{_fmt(target_c['benchmark']['total_return'], 2, '%')} | "
-            f"{_fmt(target_c['return_change'], 2, '%')} |",
-            f"| 最大回撤 | {_fmt(target_c['strategy']['max_drawdown'], 2, '%')} | "
-            f"{_fmt(target_c['benchmark']['max_drawdown'], 2, '%')} | "
-            f"改善 {_fmt(target_c['drawdown_improvement'], 2, 'pct')} |",
+            f"| 总收益 | {fmt(target_c['strategy']['total_return'], digits=2, suffix='%')} | "
+            f"{fmt(target_c['benchmark']['total_return'], digits=2, suffix='%')} | "
+            f"{fmt(target_c['return_change'], digits=2, suffix='%')} |",
+            f"| 最大回撤 | {fmt(target_c['strategy']['max_drawdown'], digits=2, suffix='%')} | "
+            f"{fmt(target_c['benchmark']['max_drawdown'], digits=2, suffix='%')} | "
+            f"改善 {fmt(target_c['drawdown_improvement'], digits=2, suffix='pct')} |",
             f"| Calmar | {calmar['strategy']} | {calmar['benchmark']} | "
-            f"{_fmt((calmar['strategy'] or 0) - (calmar['benchmark'] or 0), 2)} |",
+            f"{fmt((calmar['strategy'] or 0) - (calmar['benchmark'] or 0), digits=2)} |",
             "",
-            f"- 切换成本 {_fmt(target_c['switch_cost_bps'], 0, 'bp/年')}，年换手 "
-            f"{_fmt(target_c['annual_turnover'], 0, '%', False)}。",
+            f"- 切换成本 {fmt(target_c['switch_cost_bps'], digits=0, suffix='bp/年')}，年换手 "
+            f"{fmt(target_c['annual_turnover'], digits=0, suffix='%', signed=False)}。",
             f"- 逐窗口相对满仓等权的超额 95% 区间 {_ci(target_c['excess_ci'])}。",
             f"- {target_c['note']}",
         ]
@@ -1619,8 +1613,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(
             f"| {entry.get('target')} | {entry.get('feature')} | {entry.get('horizon')} | "
             f"{entry.get('turnover') or DASH} | {entry.get('universe')} | {entry.get('metric')} | "
-            f"{_fmt(entry.get('value'), 4, '', False)} | "
-            f"{_fmt(entry.get('p'), 3, '', False)} | {_fmt(entry.get('qvalue'), 3, '', False)} | "
+            f"{fmt(entry.get('value'), digits=4, signed=False)} | "
+            f"{fmt(entry.get('p'), signed=False)} | {fmt(entry.get('qvalue'), signed=False)} | "
             f"{'是' if entry.get('bh_reject') else '否'} |"
         )
 
@@ -1630,20 +1624,20 @@ def render_markdown(report: dict[str, Any]) -> str:
         "## 8. Harness 校准",
         "",
         f"- **iid 随机信号**（{harness['random']['seeds']} 组，确定性哈希）：平均 IC "
-        f"{_fmt(harness['random']['iid']['mean_ic'], 4)}，|IC| 均值 {harness['random']['iid']['mean_abs_ic']}，"
+        f"{fmt(harness['random']['iid']['mean_ic'], digits=4)}，|IC| 均值 {harness['random']['iid']['mean_abs_ic']}，"
         f"覆盖 0 的比例 {harness['random']['iid']['coverage']}%，误报率 "
         f"{harness['random']['iid']['false_positive_rate']}%，区间宽度 "
         f"{harness['random']['iid']['ci_width_mean']}。",
         f"- **平滑随机信号**（5 日移动平均，人为制造自相关）：平均 IC "
-        f"{_fmt(harness['random']['persistent']['mean_ic'], 4)}，覆盖 0 的比例 "
+        f"{fmt(harness['random']['persistent']['mean_ic'], digits=4)}，覆盖 0 的比例 "
         f"{harness['random']['persistent']['coverage']}%，误报率 "
         f"{harness['random']['persistent']['false_positive_rate']}%，区间宽度 "
         f"{harness['random']['persistent']['ci_width_mean']}。块自助法主要就是要挡住这一种。"
         f"→ {'区间与显著性判定可信' if harness['random']['pass'] else '区间偏窄，显著性别当真'}。",
-        f"- **12-1 动量**（已知弱信号）：IC {_fmt(harness['weak']['ic']['mean'])}，95% 区间 "
-        f"{_ci(harness['weak']['ic'])}，p = {_fmt(harness['weak']['ic']['p'], 3, '', False)}，"
+        f"- **12-1 动量**（已知弱信号）：IC {fmt(harness['weak']['ic']['mean'])}，95% 区间 "
+        f"{_ci(harness['weak']['ic'])}，p = {fmt(harness['weak']['ic']['p'], signed=False)}，"
         f"检出 = {'是' if harness['weak']['detected'] else '否'}；此刻可检出下限 "
-        f"{_fmt(harness['weak']['detectable_ic'], 3)}。"
+        f"{fmt(harness['weak']['detectable_ic'])}。"
         f"→ {harness['weak']['note']}",
         "",
         "## 9. Lockbox（只在最后评估一次）",
@@ -1655,12 +1649,12 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"区间 {lock['start']} → {lock['end']}（{lock['days']} 个交易日），"
             f"用开发期全部数据拟合、不做任何再选择，只跑一次。",
             "",
-            f"- IC {_fmt(lock['ic']['mean'])}，95% 区间 {_ci(lock['ic'])} → {_verdict(lock['ic'])}。",
-            f"- 净净值 {_fmt(lock['strategy']['total_return'], 2, '%')} vs 等权 "
-            f"{_fmt(lock['benchmark']['total_return'], 2, '%')}（差 "
-            f"{_fmt(lock['strategy']['total_return'] - lock['benchmark']['total_return'], 2, '%')}），"
-            f"最大回撤 {_fmt(lock['strategy']['max_drawdown'], 2, '%')} vs "
-            f"{_fmt(lock['benchmark']['max_drawdown'], 2, '%')}。",
+            f"- IC {fmt(lock['ic']['mean'])}，95% 区间 {_ci(lock['ic'])} → {_verdict(lock['ic'])}。",
+            f"- 净净值 {fmt(lock['strategy']['total_return'], digits=2, suffix='%')} vs 等权 "
+            f"{fmt(lock['benchmark']['total_return'], digits=2, suffix='%')}（差 "
+            f"{fmt(lock['strategy']['total_return'] - lock['benchmark']['total_return'], digits=2, suffix='%')}），"
+            f"最大回撤 {fmt(lock['strategy']['max_drawdown'], digits=2, suffix='%')} vs "
+            f"{fmt(lock['benchmark']['max_drawdown'], digits=2, suffix='%')}。",
         ]
     else:
         lines.append(f"- {report['coverage']['lockbox_start'] or '无 lockbox'}：样本深度不足。")
@@ -1796,16 +1790,16 @@ def render_html(report: dict[str, Any]) -> str:
     fold_rows = "".join(
         f"<tr><td class='num'>{row['fold']}</td><td>{row['test_start']} → {row['test_end']}</td>"
         f"<td class='num'>{row['n_train']}</td><td>{', '.join(row['features'])}</td>"
-        f"<td class='num'>{_fmt(row['ic'], 4)}</td>"
-        f"<td class='num mute'>[{_fmt(row['ci_low'], 4)}, {_fmt(row['ci_high'], 4)}]</td>"
-        f"<td class='num'>{_fmt(row['p'], 3, '', False)}</td></tr>"
+        f"<td class='num'>{fmt(row['ic'], digits=4)}</td>"
+        f"<td class='num mute'>[{fmt(row['ci_low'], digits=4)}, {fmt(row['ci_high'], digits=4)}]</td>"
+        f"<td class='num'>{fmt(row['p'], signed=False)}</td></tr>"
         for row in report["walkforward"]["folds"]
     )
     feature_rows = "".join(
         f"<tr><td>{row['family']}</td><td>{row['key']}</td>"
-        f"<td class='num {_tone(row['mean'])}'>{_fmt(row['mean'], 4)}</td>"
-        f"<td class='num mute'>[{_fmt(row['ci_low'], 4)}, {_fmt(row['ci_high'], 4)}]</td>"
-        f"<td class='num'>{_fmt(row['p'], 3, '', False)}</td>"
+        f"<td class='num {_tone(row['mean'])}'>{fmt(row['mean'], digits=4)}</td>"
+        f"<td class='num mute'>[{fmt(row['ci_low'], digits=4)}, {fmt(row['ci_high'], digits=4)}]</td>"
+        f"<td class='num'>{fmt(row['p'], signed=False)}</td>"
         f"<td>{_verdict(row)}</td></tr>"
         for row in report["features"]
     )
@@ -1816,9 +1810,9 @@ def render_html(report: dict[str, Any]) -> str:
         for row in power["table"]
     )
     risk_rows = "".join(
-        f"<tr><td>{label}</td><td class='num {_tone(stat['mean'])}'>{_fmt(stat['mean'], 4)}</td>"
+        f"<tr><td>{label}</td><td class='num {_tone(stat['mean'])}'>{fmt(stat['mean'], digits=4)}</td>"
         f"<td class='num mute'>{_ci(stat, 4)}</td>"
-        f"<td class='num'>{_fmt(stat['p'], 3, '', False)}</td><td>{_verdict(stat)}</td></tr>"
+        f"<td class='num'>{fmt(stat['p'], signed=False)}</td><td>{_verdict(stat)}</td></tr>"
         for key, label in (("vol", "未来波动率"), ("mdd", "未来最大回撤"),
                            ("downside", "未来下行波动"), ("var95", "未来 5% VaR"))
         for stat in [report["target_a"]["metrics"][key]]
@@ -1827,9 +1821,9 @@ def render_html(report: dict[str, Any]) -> str:
         f"<tr><td>{entry.get('target')}</td><td>{entry.get('feature')}</td>"
         f"<td class='num'>{entry.get('horizon')}</td><td class='num'>{entry.get('turnover') or DASH}</td>"
         f"<td class='mute'>{entry.get('universe')}</td><td>{entry.get('metric')}</td>"
-        f"<td class='num'>{_fmt(entry.get('value'), 4, '', False)}</td>"
-        f"<td class='num'>{_fmt(entry.get('p'), 3, '', False)}</td>"
-        f"<td class='num'>{_fmt(entry.get('qvalue'), 3, '', False)}</td>"
+        f"<td class='num'>{fmt(entry.get('value'), digits=4, signed=False)}</td>"
+        f"<td class='num'>{fmt(entry.get('p'), signed=False)}</td>"
+        f"<td class='num'>{fmt(entry.get('qvalue'), signed=False)}</td>"
         f"<td>{'是' if entry.get('bh_reject') else '否'}</td></tr>"
         for entry in ledger["entries"]
     )
@@ -1860,12 +1854,12 @@ def render_html(report: dict[str, Any]) -> str:
     lock_html = (
         f"<p class='wf-sub'>区间 {lock['start']} → {lock['end']}（{lock['days']} 个交易日），"
         f"用开发期全部数据拟合后只评估这一次。</p>"
-        f"<ul class='wf-sub'><li>IC {_fmt(lock['ic']['mean'])}，95% 区间 {_ci(lock['ic'])} → "
+        f"<ul class='wf-sub'><li>IC {fmt(lock['ic']['mean'])}，95% 区间 {_ci(lock['ic'])} → "
         f"{_verdict(lock['ic'])}</li>"
-        f"<li>净净值 {_fmt(lock['strategy']['total_return'], 2, '%')} vs 等权 "
-        f"{_fmt(lock['benchmark']['total_return'], 2, '%')}，最大回撤 "
-        f"{_fmt(lock['strategy']['max_drawdown'], 2, '%')} vs "
-        f"{_fmt(lock['benchmark']['max_drawdown'], 2, '%')}</li></ul>"
+        f"<li>净净值 {fmt(lock['strategy']['total_return'], digits=2, suffix='%')} vs 等权 "
+        f"{fmt(lock['benchmark']['total_return'], digits=2, suffix='%')}，最大回撤 "
+        f"{fmt(lock['strategy']['max_drawdown'], digits=2, suffix='%')} vs "
+        f"{fmt(lock['benchmark']['max_drawdown'], digits=2, suffix='%')}</li></ul>"
         if lock.get("available")
         else "<p class='wf-sub'>lockbox 不可用（样本深度不足）。</p>"
     )
@@ -1877,16 +1871,16 @@ def render_html(report: dict[str, Any]) -> str:
             f"{target_c['exposure_mean']}%，T+1 开盘生效。</p>"
             "<div class='wf-scroll'><table><thead><tr><th>指标</th><th>regime</th>"
             "<th>满仓等权</th><th>差</th></tr></thead><tbody>"
-            f"<tr><td>总收益</td><td class='num'>{_fmt(target_c['strategy']['total_return'], 2, '%')}</td>"
-            f"<td class='num'>{_fmt(target_c['benchmark']['total_return'], 2, '%')}</td>"
-            f"<td class='num {_tone(target_c['return_change'])}'>{_fmt(target_c['return_change'], 2, '%')}</td></tr>"
-            f"<tr><td>最大回撤</td><td class='num'>{_fmt(target_c['strategy']['max_drawdown'], 2, '%')}</td>"
-            f"<td class='num'>{_fmt(target_c['benchmark']['max_drawdown'], 2, '%')}</td>"
-            f"<td class='num'>改善 {_fmt(target_c['drawdown_improvement'], 2, 'pct')}</td></tr>"
+            f"<tr><td>总收益</td><td class='num'>{fmt(target_c['strategy']['total_return'], digits=2, suffix='%')}</td>"
+            f"<td class='num'>{fmt(target_c['benchmark']['total_return'], digits=2, suffix='%')}</td>"
+            f"<td class='num {_tone(target_c['return_change'])}'>{fmt(target_c['return_change'], digits=2, suffix='%')}</td></tr>"
+            f"<tr><td>最大回撤</td><td class='num'>{fmt(target_c['strategy']['max_drawdown'], digits=2, suffix='%')}</td>"
+            f"<td class='num'>{fmt(target_c['benchmark']['max_drawdown'], digits=2, suffix='%')}</td>"
+            f"<td class='num'>改善 {fmt(target_c['drawdown_improvement'], digits=2, suffix='pct')}</td></tr>"
             f"<tr><td>Calmar</td><td class='num'>{calmar['strategy']}</td>"
             f"<td class='num'>{calmar['benchmark']}</td><td class='num'>—</td></tr>"
             "</tbody></table></div>"
-            f"<p class='wf-sub'>切换成本 {_fmt(target_c['switch_cost_bps'], 0, 'bp/年')}，"
+            f"<p class='wf-sub'>切换成本 {fmt(target_c['switch_cost_bps'], digits=0, suffix='bp/年')}，"
             f"逐窗口超额 95% 区间 {_ci(target_c['excess_ci'])}。</p>"
         )
     else:
@@ -1900,8 +1894,8 @@ lockbox {coverage['lockbox_start'] or DASH} 起 {coverage['dates_lockbox']} 个�
 {params['execution']} · 自助重采样 {params['bootstrap_iters']} 次</p>
 
 <div class="wf-warn">
-目标 B（选股）IC <b>{_fmt(pooled['mean'], 4)}</b>，95% 区间 <b>{_ci(pooled, 4)}</b> →
-<b>{_verdict(pooled)}</b>；净净值相对等权 {_fmt(stats['excess_vs_bench'], 2, '%')}。
+目标 B（选股）IC <b>{fmt(pooled['mean'], digits=4)}</b>，95% 区间 <b>{_ci(pooled, 4)}</b> →
+<b>{_verdict(pooled)}</b>；净净值相对等权 {fmt(stats['excess_vs_bench'], digits=2, suffix='%')}。
 目标 A {('达标' if verdicts['A']['pass'] else '未达标')}，
 目标 C {('达标' if verdicts['C']['pass'] else '未达标')}。
 台账 {ledger['n_trials']} 次试验，BH-FDR 后显著 {ledger['n_bh_reject']} 个。
@@ -1913,7 +1907,7 @@ lockbox {coverage['lockbox_start'] or DASH} 起 {coverage['dates_lockbox']} 个�
 <h4>1. 样本量与功效：这套数据能看见多大的 IC</h4>
 <p class="wf-sub">{params['horizon']} 日 horizon 下开发期相当于 {pooled['n_blocks']} 个独立块；
 实测折内逐日 IC 标准差 σ={power['sigma_ic']}（理论下限 1/√N={power['sigma_theory']}），
-当前可检出下限 ≈ {_fmt(power['detectable_now'], 3)}。
+当前可检出下限 ≈ {fmt(power['detectable_now'])}。
 若要检测 IC=0.03，需要 {power['for_ic_003']['n_blocks']} 个独立周期
 （≈{power['for_ic_003']['n_days']} 个交易日 / {power['for_ic_003']['n_years']} 年）。</p>
 <div class="wf-scroll"><table>
@@ -1934,28 +1928,28 @@ lockbox {coverage['lockbox_start'] or DASH} 起 {coverage['dates_lockbox']} 个�
 <thead><tr><th>组合</th><th>总收益</th><th>年化</th><th>最大回撤</th><th>夏普</th><th>年换手</th><th>成本(bp/年)</th></tr></thead>
 <tbody>
 <tr><td><b>新模型（T+1 开盘）</b></td>
-<td class="num {_tone(stats['strategy']['total_return'])}">{_fmt(stats['strategy']['total_return'], 2, '%')}</td>
-<td class="num">{_fmt(stats['strategy']['annual_return'], 2, '%')}</td>
-<td class="num">{_fmt(stats['strategy']['max_drawdown'], 2, '%')}</td>
+<td class="num {_tone(stats['strategy']['total_return'])}">{fmt(stats['strategy']['total_return'], digits=2, suffix='%')}</td>
+<td class="num">{fmt(stats['strategy']['annual_return'], digits=2, suffix='%')}</td>
+<td class="num">{fmt(stats['strategy']['max_drawdown'], digits=2, suffix='%')}</td>
 <td class="num">{stats['strategy']['sharpe']}</td>
-<td class="num">{_fmt(stats['strategy']['annual_turnover'], 0, '%', False)}</td>
+<td class="num">{fmt(stats['strategy']['annual_turnover'], digits=0, suffix='%', signed=False)}</td>
 <td class="num">{stats['strategy']['cost_drag_bps']:.0f}</td></tr>
 <tr><td>新模型（同日收盘，旧口径）</td>
-<td class="num {_tone(stats['strategy_same_close']['total_return'])}">{_fmt(stats['strategy_same_close']['total_return'], 2, '%')}</td>
-<td class="num">{_fmt(stats['strategy_same_close']['annual_return'], 2, '%')}</td>
-<td class="num">{_fmt(stats['strategy_same_close']['max_drawdown'], 2, '%')}</td>
+<td class="num {_tone(stats['strategy_same_close']['total_return'])}">{fmt(stats['strategy_same_close']['total_return'], digits=2, suffix='%')}</td>
+<td class="num">{fmt(stats['strategy_same_close']['annual_return'], digits=2, suffix='%')}</td>
+<td class="num">{fmt(stats['strategy_same_close']['max_drawdown'], digits=2, suffix='%')}</td>
 <td class="num">{stats['strategy_same_close']['sharpe']}</td>
-<td class="num">{_fmt(stats['strategy_same_close']['annual_turnover'], 0, '%', False)}</td>
+<td class="num">{fmt(stats['strategy_same_close']['annual_turnover'], digits=0, suffix='%', signed=False)}</td>
 <td class="num">{stats['strategy_same_close']['cost_drag_bps']:.0f}</td></tr>
 <tr><td>等权基准（T+1，不计成本）</td>
-<td class="num {_tone(stats['benchmark']['total_return'])}">{_fmt(stats['benchmark']['total_return'], 2, '%')}</td>
-<td class="num">{_fmt(stats['benchmark']['annual_return'], 2, '%')}</td>
-<td class="num">{_fmt(stats['benchmark']['max_drawdown'], 2, '%')}</td>
+<td class="num {_tone(stats['benchmark']['total_return'])}">{fmt(stats['benchmark']['total_return'], digits=2, suffix='%')}</td>
+<td class="num">{fmt(stats['benchmark']['annual_return'], digits=2, suffix='%')}</td>
+<td class="num">{fmt(stats['benchmark']['max_drawdown'], digits=2, suffix='%')}</td>
 <td class="num">{stats['benchmark']['sharpe']}</td>
-<td class="num">{_fmt(stats['benchmark']['annual_turnover'], 0, '%', False)}</td>
+<td class="num">{fmt(stats['benchmark']['annual_turnover'], digits=0, suffix='%', signed=False)}</td>
 <td class="num">{stats['benchmark']['cost_drag_bps']:.0f}</td></tr>
 </tbody></table></div>
-<p class="wf-sub">执行口径差额 {_fmt(stats['execution_gap'], 2, '%')}；被过滤委托：涨停买不进
+<p class="wf-sub">执行口径差额 {fmt(stats['execution_gap'], digits=2, suffix='%')}；被过滤委托：涨停买不进
 {stats['blocked']['buy_limit_up']}、停牌买不进 {stats['blocked']['buy_suspended']}、
 跌停卖不出 {stats['blocked']['sell_limit_down']}、停牌卖不出 {stats['blocked']['sell_suspended']}。
 逐窗口超额 95% 区间 {_ci(stats['excess_ci'])}，为正窗口 {stats['excess_win_rate']}%。
@@ -2009,13 +2003,13 @@ BH-FDR(q={ledger['q']}) 后剩 {ledger['n_bh_reject']} 条。</p>
 <div class="wf-factor">
 <h4>9. Harness 校准</h4>
 <p class="wf-sub">随机信号 {harness['random']['seeds']} 组 ×2（iid / 5 日平滑自相关）：
-平均 IC {_fmt(harness['random']['iid']['mean_ic'], 4)} / {_fmt(harness['random']['persistent']['mean_ic'], 4)}，
+平均 IC {fmt(harness['random']['iid']['mean_ic'], digits=4)} / {fmt(harness['random']['persistent']['mean_ic'], digits=4)}，
 覆盖 0 的比例 {harness['random']['iid']['coverage']}% / {harness['random']['persistent']['coverage']}%，
 误报率 {harness['random']['iid']['false_positive_rate']}% / {harness['random']['persistent']['false_positive_rate']}%
 → {'区间可信' if harness['random']['pass'] else '区间偏窄，显著性别当真'}。<br>
-12-1 动量（已知弱信号）：IC {_fmt(harness['weak']['ic']['mean'])}，区间 {_ci(harness['weak']['ic'])}，
+12-1 动量（已知弱信号）：IC {fmt(harness['weak']['ic']['mean'])}，区间 {_ci(harness['weak']['ic'])}，
 检出 {'是' if harness['weak']['detected'] else '否'}；当前可检出下限
-{_fmt(harness['weak']['detectable_ic'], 3)}。</p>
+{fmt(harness['weak']['detectable_ic'])}。</p>
 </div>
 
 <div class="wf-factor">

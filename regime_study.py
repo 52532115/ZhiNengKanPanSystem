@@ -39,6 +39,7 @@ import regime as rg
 import scoring
 import score_study as ss
 import xsec
+from reporting import num
 
 ROOT = Path(__file__).resolve().parent
 FIELDS = ROOT / ".cache" / "fields"
@@ -442,10 +443,6 @@ def foresight_exposure(
 # --------------------------------------------------------------------------- #
 
 
-def _num(value: float | None, digits: int = 2) -> str:
-    return "—" if value is None else f"{value:.{digits}f}"
-
-
 def _svg_exposure(
     index_rows: Sequence[dict[str, Any]],
     points: Sequence[rg.RegimePoint],
@@ -535,23 +532,23 @@ def render_markdown(report: dict[str, Any]) -> str:
     variants = report["variants"]
     verdict = report["verdict"]
     table = "\n".join(
-        f"| {v['name']} | {_num(v['stats']['cagr'])}% | {_num(v['stats']['sharpe'], 3)} | "
-        f"{_num(v['stats']['max_drawdown'])}% | {_num(v['stats']['turnover'], 0)}% | "
-        f"{_num(v['stats']['cost_bps'], 0)}bp | {_num(v['stats']['avg_exposure'], 2)} |"
+        f"| {v['name']} | {num(v['stats']['cagr'], digits=2)}% | {num(v['stats']['sharpe'], digits=3)} | "
+        f"{num(v['stats']['max_drawdown'], digits=2)}% | {num(v['stats']['turnover'], digits=0)}% | "
+        f"{num(v['stats']['cost_bps'], digits=0)}bp | {num(v['stats']['avg_exposure'], digits=2)} |"
         for v in variants
     )
     years_rows = "\n".join(
-        f"| {year} | {row['window']} | {_num(row['a_return'])}% / {_num(row['a_drawdown'])}% | "
-        f"{_num(row['c_return'])}% | {row['risk_off_share']}% | {row['flag']} |"
+        f"| {year} | {row['window']} | {num(row['a_return'], digits=2)}% / {num(row['a_drawdown'], digits=2)}% | "
+        f"{num(row['c_return'], digits=2)}% | {row['risk_off_share']}% | {row['flag']} |"
         for year, row in report["windows"].items()
     )
     momentum_rows = "\n".join(
-        f"| {year} | {row['window']} | {_num(row['m_return'])}% | {_num(row['m12_return'])}% | "
-        f"{_num(row['risk_off_share'])}% |"
+        f"| {year} | {row['window']} | {num(row['m_return'], digits=2)}% | {num(row['m12_return'], digits=2)}% | "
+        f"{num(row['risk_off_share'], digits=2)}% |"
         for year, row in report["windows"].items()
     )
     ic_rows = "\n".join(
-        f"| {key} | {_num(row['mean'], 4)} | [{_num(row['ci_low'], 4)}, {_num(row['ci_high'], 4)}] | {row['n_days']} |"
+        f"| {key} | {num(row['mean'], digits=4)} | [{num(row['ci_low'], digits=4)}, {num(row['ci_high'], digits=4)}] | {row['n_days']} |"
         for key, row in report["ic"].items()
     )
     fwd = report["forward"]
@@ -599,9 +596,9 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 ## 4. 分类器是否领先于风险（前向 20 日）
 
-risk_on：{fwd['risk_on']['n']} 天，前向波动 {_num(fwd['risk_on']['vol'])}%、前向回撤 {_num(fwd['risk_on']['mdd'])}%、前向收益 {_num(fwd['risk_on']['return'])}%
-risk_off：{fwd['risk_off']['n']} 天，前向波动 {_num(fwd['risk_off']['vol'])}%、前向回撤 {_num(fwd['risk_off']['mdd'])}%、前向收益 {_num(fwd['risk_off']['return'])}%
-差值：波动 {_num(fwd['spread']['vol'])}pp、回撤 {_num(fwd['spread']['mdd'])}pp、收益 {_num(fwd['spread']['return'])}pp
+risk_on：{fwd['risk_on']['n']} 天，前向波动 {num(fwd['risk_on']['vol'], digits=2)}%、前向回撤 {num(fwd['risk_on']['mdd'], digits=2)}%、前向收益 {num(fwd['risk_on']['return'], digits=2)}%
+risk_off：{fwd['risk_off']['n']} 天，前向波动 {num(fwd['risk_off']['vol'], digits=2)}%、前向回撤 {num(fwd['risk_off']['mdd'], digits=2)}%、前向收益 {num(fwd['risk_off']['return'], digits=2)}%
+差值：波动 {num(fwd['spread']['vol'], digits=2)}pp、回撤 {num(fwd['spread']['mdd'], digits=2)}pp、收益 {num(fwd['spread']['return'], digits=2)}pp
 
 ## 5. 口径与边界
 
@@ -617,8 +614,8 @@ risk_off：{fwd['risk_off']['n']} 天，前向波动 {_num(fwd['risk_off']['vol'
 ## 6. 切换与滞后
 
 切换 {report['switches']['n']} 次（年均 {report['switches']['per_year']} 次），平均滞后 {report['switches']['mean_lag']} 个交易日，
-确认滞后本身 {report['lag']['mean_lag_days']} 天。滞后成本（负数=付出代价）：均值 {_num(report['lag']['mean_cost'])}pp、
-中位 {_num(report['lag']['median_cost'])}pp、最差 {_num(report['lag']['worst'])}pp、累计 {_num(report['lag']['total_cost'])}pp。
+确认滞后本身 {report['lag']['mean_lag_days']} 天。滞后成本（负数=付出代价）：均值 {num(report['lag']['mean_cost'], digits=2)}pp、
+中位 {num(report['lag']['median_cost'], digits=2)}pp、最差 {num(report['lag']['worst'], digits=2)}pp、累计 {num(report['lag']['total_cost'], digits=2)}pp。
 
 | 年份 | risk-off 天数 | 切换次数 |
 | --- | --- | --- |
@@ -637,26 +634,26 @@ def render_html(report: dict[str, Any]) -> str:
     variants = report["variants"]
     verdict = report["verdict"]
     rows = "".join(
-        f"<tr><td>{v['name']}</td><td>{_num(v['stats']['cagr'])}%</td>"
-        f"<td>{_num(v['stats']['sharpe'], 3)}</td><td>{_num(v['stats']['max_drawdown'])}%</td>"
-        f"<td>{_num(v['stats']['turnover'], 0)}%</td><td>{_num(v['stats']['cost_bps'], 0)}bp</td>"
-        f"<td>{_num(v['stats']['avg_exposure'], 2)}</td></tr>"
+        f"<tr><td>{v['name']}</td><td>{num(v['stats']['cagr'], digits=2)}%</td>"
+        f"<td>{num(v['stats']['sharpe'], digits=3)}</td><td>{num(v['stats']['max_drawdown'], digits=2)}%</td>"
+        f"<td>{num(v['stats']['turnover'], digits=0)}%</td><td>{num(v['stats']['cost_bps'], digits=0)}bp</td>"
+        f"<td>{num(v['stats']['avg_exposure'], digits=2)}</td></tr>"
         for v in variants
     )
     year_rows = "".join(
         f"<tr><td>{year}</td><td>{row['window']}</td>"
-        f"<td>{_num(row['a_return'])}% / {_num(row['a_drawdown'])}%</td>"
-        f"<td>{_num(row['c_return'])}%</td><td>{row['risk_off_share']}%</td><td>{row['flag']}</td></tr>"
+        f"<td>{num(row['a_return'], digits=2)}% / {num(row['a_drawdown'], digits=2)}%</td>"
+        f"<td>{num(row['c_return'], digits=2)}%</td><td>{row['risk_off_share']}%</td><td>{row['flag']}</td></tr>"
         for year, row in report["windows"].items()
     )
     momentum_rows = "".join(
-        f"<tr><td>{year}</td><td>{row['window']}</td><td>{_num(row['m_return'])}%</td>"
-        f"<td>{_num(row['m12_return'])}%</td><td>{row['risk_off_share']}%</td></tr>"
+        f"<tr><td>{year}</td><td>{row['window']}</td><td>{num(row['m_return'], digits=2)}%</td>"
+        f"<td>{num(row['m12_return'], digits=2)}%</td><td>{row['risk_off_share']}%</td></tr>"
         for year, row in report["windows"].items()
     )
     ic_rows = "".join(
-        f"<tr><td>{key}</td><td>{_num(row['mean'], 4)}</td>"
-        f"<td>[{_num(row['ci_low'], 4)}, {_num(row['ci_high'], 4)}]</td><td>{row['n_days']}</td></tr>"
+        f"<tr><td>{key}</td><td>{num(row['mean'], digits=4)}</td>"
+        f"<td>[{num(row['ci_low'], digits=4)}, {num(row['ci_high'], digits=4)}]</td><td>{row['n_days']}</td></tr>"
         for key, row in report["ic"].items()
     )
     flag_class = lambda ok: "pass" if ok else "fail"
@@ -720,14 +717,14 @@ th{{color:var(--muted);font-weight:600;font-size:12px;background:#fbfcfe}}
 <h2>6. 分类器是否领先于风险（前向 20 日）</h2>
 <div class="card"><table>
 <tr><th>状态</th><th>天数</th><th>前向波动</th><th>前向回撤</th><th>前向收益</th><th>负收益占比</th></tr>
-<tr><td>risk_on</td><td>{report['forward']['risk_on']['n']}</td><td>{_num(report['forward']['risk_on']['vol'])}%</td>
-<td>{_num(report['forward']['risk_on']['mdd'])}%</td><td>{_num(report['forward']['risk_on']['return'])}%</td>
+<tr><td>risk_on</td><td>{report['forward']['risk_on']['n']}</td><td>{num(report['forward']['risk_on']['vol'], digits=2)}%</td>
+<td>{num(report['forward']['risk_on']['mdd'], digits=2)}%</td><td>{num(report['forward']['risk_on']['return'], digits=2)}%</td>
 <td>{report['forward']['risk_on']['negative_rate']}%</td></tr>
-<tr><td>risk_off</td><td>{report['forward']['risk_off']['n']}</td><td>{_num(report['forward']['risk_off']['vol'])}%</td>
-<td>{_num(report['forward']['risk_off']['mdd'])}%</td><td>{_num(report['forward']['risk_off']['return'])}%</td>
+<tr><td>risk_off</td><td>{report['forward']['risk_off']['n']}</td><td>{num(report['forward']['risk_off']['vol'], digits=2)}%</td>
+<td>{num(report['forward']['risk_off']['mdd'], digits=2)}%</td><td>{num(report['forward']['risk_off']['return'], digits=2)}%</td>
 <td>{report['forward']['risk_off']['negative_rate']}%</td></tr>
-<tr><td>差值</td><td></td><td>{_num(report['forward']['spread']['vol'])}pp</td>
-<td>{_num(report['forward']['spread']['mdd'])}pp</td><td>{_num(report['forward']['spread']['return'])}pp</td><td></td></tr>
+<tr><td>差值</td><td></td><td>{num(report['forward']['spread']['vol'], digits=2)}pp</td>
+<td>{num(report['forward']['spread']['mdd'], digits=2)}pp</td><td>{num(report['forward']['spread']['return'], digits=2)}pp</td><td></td></tr>
 </table></div>
 
 <h2>7. 口径与边界</h2>
@@ -741,8 +738,8 @@ th{{color:var(--muted);font-weight:600;font-size:12px;background:#fbfcfe}}
 
 <h2>8. 切换与滞后</h2>
 <div class="card"><p class="sub">切换 {report['switches']['n']} 次（年均 {report['switches']['per_year']}），
-平均滞后 {report['switches']['mean_lag']} 个交易日；滞后成本均值 {_num(report['lag']['mean_cost'])}pp、
-中位 {_num(report['lag']['median_cost'])}pp、最差 {_num(report['lag']['worst'])}pp、累计 {_num(report['lag']['total_cost'])}pp。</p>
+平均滞后 {report['switches']['mean_lag']} 个交易日；滞后成本均值 {num(report['lag']['mean_cost'], digits=2)}pp、
+中位 {num(report['lag']['median_cost'], digits=2)}pp、最差 {num(report['lag']['worst'], digits=2)}pp、累计 {num(report['lag']['total_cost'], digits=2)}pp。</p>
 <table><tr><th>年份</th><th>risk-off 天数</th><th>切换次数</th></tr>
 {''.join(f"<tr><td>{y}</td><td>{r['risk_off']}</td><td>{r['flips']}</td></tr>" for y, r in report['by_year'].items())}
 </table></div>

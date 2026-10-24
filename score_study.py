@@ -37,6 +37,7 @@ import evalkit
 import factors
 import scoring
 import xsec
+from reporting import num, signed
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache" / "scoring" / "panel.json.gz"
@@ -527,24 +528,16 @@ def net_backtest(
 # --------------------------------------------------------------------------- #
 
 
-def _num(value: float | None, digits: int = 3) -> str:
-    return "—" if value is None else f"{value:.{digits}f}"
-
-
-def _signed(value: float | None, digits: int = 4) -> str:
-    return "—" if value is None else f"{value:+.{digits}f}"
-
-
 def render_markdown(report: dict[str, Any]) -> str:
     variants = report["variants"]
     ic_rows = "\n".join(
-        f"| {v['name']} | {_signed(v['ic']['mean'])} | [{_signed(v['ic']['ci_low'])}, {_signed(v['ic']['ci_high'])}] | "
-        f"{_num(v['ic']['positive_rate'], 1)}% | {_num(v['ic']['n_blocks'], 1)} |"
+        f"| {v['name']} | {signed(v['ic']['mean'], digits=4)} | [{signed(v['ic']['ci_low'], digits=4)}, {signed(v['ic']['ci_high'], digits=4)}] | "
+        f"{num(v['ic']['positive_rate'], digits=1)}% | {num(v['ic']['n_blocks'], digits=1)} |"
         for v in variants
     )
     turn_rows = "\n".join(
         f"| {v['name']} | {v['turnover']['annual']:.0f}% | {v['turnover']['mean'] * 100:.1f}% | "
-        f"{_num(v['monotone']['spearman'], 2)} | {v['monotone']['steps']} | {_num(v['monotone']['spread'], 2)} |"
+        f"{num(v['monotone']['spearman'], digits=2)} | {v['monotone']['steps']} | {num(v['monotone']['spread'], digits=2)} |"
         for v in variants
     )
     net_rows = "\n".join(
@@ -628,13 +621,13 @@ purge {report['split']['purged']} 个交易日；标签周期 {HORIZON} 日。
 | --- | --- | --- | --- | --- |
 {cal_rows}
 
-ECE = {_num(cal['metrics']['ece'], 4)}，斜率 = {_num(cal['metrics']['slope'], 3)}，
-最大偏差 = {_num(cal['metrics']['max_gap'], 4)}，离 45° 的 RMS = {_num(cal['metrics']['rms'], 4)}，
-预测跨度 = {_num(cal.get('spread'), 3)}。
+ECE = {num(cal['metrics']['ece'], digits=4)}，斜率 = {num(cal['metrics']['slope'], digits=3)}，
+最大偏差 = {num(cal['metrics']['max_gap'], digits=4)}，离 45° 的 RMS = {num(cal['metrics']['rms'], digits=4)}，
+预测跨度 = {num(cal.get('spread'), digits=3)}。
 
-参照系：一律给 50% 的常数预测，样本外 ECE = {_num(cal.get('constant_ece'), 3)}。
-拟合内 ECE = {_num(report['calibration_train']['metrics']['ece'], 4)}、
-斜率 = {_num(report['calibration_train']['metrics']['slope'], 3)}。
+参照系：一律给 50% 的常数预测，样本外 ECE = {num(cal.get('constant_ece'), digits=3)}。
+拟合内 ECE = {num(report['calibration_train']['metrics']['ece'], digits=4)}、
+斜率 = {num(report['calibration_train']['metrics']['slope'], digits=3)}。
 
 ## 口径说明
 
@@ -796,10 +789,10 @@ def render_html(report: dict[str, Any]) -> str:
     }
     verdict = report["verdict"]
     rows = "".join(
-        f"<tr><td>{v['name']}</td><td>{_signed(v['ic']['mean'])}</td>"
-        f"<td>[{_signed(v['ic']['ci_low'])}, {_signed(v['ic']['ci_high'])}]</td>"
-        f"<td>{v['turnover']['annual']:.0f}%</td><td>{_num(v['monotone']['spearman'], 2)}</td>"
-        f"<td>{_num(v['monotone']['spread'], 2)}</td></tr>"
+        f"<tr><td>{v['name']}</td><td>{signed(v['ic']['mean'], digits=4)}</td>"
+        f"<td>[{signed(v['ic']['ci_low'], digits=4)}, {signed(v['ic']['ci_high'], digits=4)}]</td>"
+        f"<td>{v['turnover']['annual']:.0f}%</td><td>{num(v['monotone']['spearman'], digits=2)}</td>"
+        f"<td>{num(v['monotone']['spread'], digits=2)}</td></tr>"
         for v in variants
     )
     weight_rows = "".join(
@@ -867,8 +860,8 @@ code{{background:#eef2f7;padding:1px 5px;border-radius:3px;font-size:12px}}
 <div class="grid">
   <div class="card">{_svg_calibration({"训练集（拟合内）": report['calibration_train']['curve'], "验证集（样本外）": cal['curve']})}</div>
   <div class="card"><table><tr><th>分箱</th><th>预测</th><th>实际</th><th>偏差</th></tr>{cal_rows}</table>
-  <p class="sub">样本外 ECE {_num(cal['metrics']['ece'], 4)} · 斜率 {_num(cal['metrics']['slope'], 3)} · RMS {_num(cal['metrics']['rms'], 4)} ·
-  预测跨度 {_num(cal.get('spread'), 3)}；一律给 50% 的常数预测 ECE {_num(cal.get('constant_ece'), 3)}</p></div>
+  <p class="sub">样本外 ECE {num(cal['metrics']['ece'], digits=4)} · 斜率 {num(cal['metrics']['slope'], digits=3)} · RMS {num(cal['metrics']['rms'], digits=4)} ·
+  预测跨度 {num(cal.get('spread'), digits=3)}；一律给 50% 的常数预测 ECE {num(cal.get('constant_ece'), digits=3)}</p></div>
 </div>
 
 <h2>3. 五分组 20 日超额（%）</h2>
@@ -1119,9 +1112,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(f"\n完成 → {outdir}")
     for variant in variants:
-        print(f"  {variant['name']:<18} IC {_signed(variant['ic']['mean'])} "
-              f"[{_signed(variant['ic']['ci_low'])},{_signed(variant['ic']['ci_high'])}]  "
-              f"换手 {variant['turnover']['annual']:.0f}%  单调 {_num(variant['monotone']['spearman'], 2)}")
+        print(f"  {variant['name']:<18} IC {signed(variant['ic']['mean'], digits=4)} "
+              f"[{signed(variant['ic']['ci_low'], digits=4)},{signed(variant['ic']['ci_high'], digits=4)}]  "
+              f"换手 {variant['turnover']['annual']:.0f}%  单调 {num(variant['monotone']['spearman'], digits=2)}")
     print(f"  校准 ECE {cal_metrics['ece']:.4f} 斜率 {cal_metrics['slope']}")
     return 0
 

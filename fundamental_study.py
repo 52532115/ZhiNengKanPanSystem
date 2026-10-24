@@ -33,6 +33,7 @@ import score_study as ss
 from research import fundamentals as fz
 from research.datasets import resolve
 from research.pit_join import audit as pit_audit
+from reporting import num, signed
 
 ROOT = Path(__file__).resolve().parent
 STOCK_CACHE = ROOT / ".cache" / "fields" / "stocks"
@@ -150,41 +151,29 @@ def lookahead_gap(
 # --------------------------------------------------------------------------- #
 
 
-def _num(value: Any, digits: int = 3) -> str:
-    if value is None:
-        return "—"
-    return f"{value:.{digits}f}"
-
-
-def _signed(value: Any, digits: int = 4) -> str:
-    if value is None:
-        return "—"
-    return f"{value:+.{digits}f}"
-
-
 def render_markdown(report: dict[str, Any]) -> str:
     meta, verdict = report["meta"], report["verdict"]
     factor_rows = "\n".join(
         f"| {DIMENSION_NAMES[spec.dimension]} | {spec.name} | `{spec.key}` | "
-        f"{spec.formula} | {'+' if spec.prior > 0 else '−'} | {_num(report['coverage'].get(spec.key, {}).get('date_share'), 2)} | "
-        f"{_num(report['coverage'].get(spec.key, {}).get('mean_stocks'), 1)} |"
+        f"{spec.formula} | {'+' if spec.prior > 0 else '−'} | {num(report['coverage'].get(spec.key, {}).get('date_share'), digits=2)} | "
+        f"{num(report['coverage'].get(spec.key, {}).get('mean_stocks'), digits=1)} |"
         for spec in fz.FACTORS.values()
     )
     result_rows = "\n".join(
         f"| {DIMENSION_NAMES[fz.FACTORS[key].dimension]} | {fz.FACTORS[key].name} | "
-        f"{_signed(row['raw']['mean'])} | {_signed(row['neutral']['mean'])} | "
-        f"**{_signed(row['incremental']['mean'])}** "
-        f"[{_signed(row['incremental']['ci_low'])}, {_signed(row['incremental']['ci_high'])}] | "
-        f"{_signed(row['combination']['delta']['mean'])} | "
+        f"{signed(row['raw']['mean'], digits=4)} | {signed(row['neutral']['mean'], digits=4)} | "
+        f"**{signed(row['incremental']['mean'], digits=4)}** "
+        f"[{signed(row['incremental']['ci_low'], digits=4)}, {signed(row['incremental']['ci_high'], digits=4)}] | "
+        f"{signed(row['combination']['delta']['mean'], digits=4)} | "
         f"{row['incremental']['icir'] if row['incremental']['icir'] is not None else '—'} |"
         for key, row in report["results"].items()
         if row["incremental"]["mean"] is not None
     )
     dim_rows = "\n".join(
-        f"| {DIMENSION_NAMES[name.replace('dim_', '')]} | {_signed(row['incremental']['mean'])} "
-        f"[{_signed(row['incremental']['ci_low'])}, {_signed(row['incremental']['ci_high'])}] | "
-        f"{_signed(row['combination']['delta']['mean'])} "
-        f"[{_signed(row['combination']['delta']['ci_low'])}, {_signed(row['combination']['delta']['ci_high'])}] | "
+        f"| {DIMENSION_NAMES[name.replace('dim_', '')]} | {signed(row['incremental']['mean'], digits=4)} "
+        f"[{signed(row['incremental']['ci_low'], digits=4)}, {signed(row['incremental']['ci_high'], digits=4)}] | "
+        f"{signed(row['combination']['delta']['mean'], digits=4)} "
+        f"[{signed(row['combination']['delta']['ci_low'], digits=4)}, {signed(row['combination']['delta']['ci_high'], digits=4)}] | "
         f"{row['incremental']['icir'] if row['incremental']['icir'] is not None else '—'} |"
         for name, row in report["dimensions"].items()
         if row["incremental"]["mean"] is not None
@@ -204,8 +193,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         for dim, row in report["pit"]["lag_days"].items()
     )
     gap_rows = "\n".join(
-        f"| {fz.FACTORS[key].name} | {_signed(row['period_mean'])} | {_signed(row['available_mean'])} | "
-        f"{_signed(row['gap'])} | {_num(row['inflation'], 2)}× |"
+        f"| {fz.FACTORS[key].name} | {signed(row['period_mean'], digits=4)} | {signed(row['available_mean'], digits=4)} | "
+        f"{signed(row['gap'], digits=4)} | {num(row['inflation'], digits=2)}× |"
         for key, row in report["pit"]["lookahead"].items()
     )
     return f"""# P2-10 · 基本面 / 资金流 / 另类数据：增量 IC 与 PIT 审计
@@ -314,23 +303,23 @@ def render_html(report: dict[str, Any]) -> str:
     factor_rows = "".join(
         f"<tr><td>{DIMENSION_NAMES[spec.dimension]}</td><td>{spec.name}</td><td><code>{spec.key}</code></td>"
         f"<td class='left'>{spec.formula}</td><td>{'+' if spec.prior > 0 else '−'}</td>"
-        f"<td>{_num(report['coverage'].get(spec.key, {}).get('date_share'), 2)}</td>"
-        f"<td>{_num(report['coverage'].get(spec.key, {}).get('mean_stocks'), 1)}</td></tr>"
+        f"<td>{num(report['coverage'].get(spec.key, {}).get('date_share'), digits=2)}</td>"
+        f"<td>{num(report['coverage'].get(spec.key, {}).get('mean_stocks'), digits=1)}</td></tr>"
         for spec in fz.FACTORS.values()
     )
     result_rows = "".join(
         f"<tr><td>{DIMENSION_NAMES[fz.FACTORS[key].dimension]}</td><td>{fz.FACTORS[key].name}</td>"
-        f"<td>{_signed(row['raw']['mean'])}</td><td>{_signed(row['neutral']['mean'])}</td>"
+        f"<td>{signed(row['raw']['mean'], digits=4)}</td><td>{signed(row['neutral']['mean'], digits=4)}</td>"
         f"<td class='{flag(row['incremental']['ci_low'] is not None and row['incremental']['ci_low'] > 0)}'>"
-        f"{_signed(row['incremental']['mean'])} [{_signed(row['incremental']['ci_low'])}, {_signed(row['incremental']['ci_high'])}]</td>"
-        f"<td>{_signed(row['combination']['delta']['mean'])}</td>"
+        f"{signed(row['incremental']['mean'], digits=4)} [{signed(row['incremental']['ci_low'], digits=4)}, {signed(row['incremental']['ci_high'], digits=4)}]</td>"
+        f"<td>{signed(row['combination']['delta']['mean'], digits=4)}</td>"
         f"<td>{row['incremental']['icir'] if row['incremental']['icir'] is not None else '—'}</td></tr>"
         for key, row in report["results"].items() if row["incremental"]["mean"] is not None
     )
     dim_rows = "".join(
         f"<tr><td>{DIMENSION_NAMES[name.replace('dim_', '')]}</td>"
-        f"<td>{_signed(row['incremental']['mean'])} [{_signed(row['incremental']['ci_low'])}, {_signed(row['incremental']['ci_high'])}]</td>"
-        f"<td>{_signed(row['combination']['delta']['mean'])} [{_signed(row['combination']['delta']['ci_low'])}, {_signed(row['combination']['delta']['ci_high'])}]</td>"
+        f"<td>{signed(row['incremental']['mean'], digits=4)} [{signed(row['incremental']['ci_low'], digits=4)}, {signed(row['incremental']['ci_high'], digits=4)}]</td>"
+        f"<td>{signed(row['combination']['delta']['mean'], digits=4)} [{signed(row['combination']['delta']['ci_low'], digits=4)}, {signed(row['combination']['delta']['ci_high'], digits=4)}]</td>"
         f"<td>{row['incremental']['icir'] if row['incremental']['icir'] is not None else '—'}</td></tr>"
         for name, row in report["dimensions"].items() if row["incremental"]["mean"] is not None
     )
@@ -352,9 +341,9 @@ def render_html(report: dict[str, Any]) -> str:
         for dim, row in report["pit"]["lag_days"].items()
     )
     gap_rows = "".join(
-        f"<tr><td>{fz.FACTORS[key].name}</td><td>{_signed(row['period_mean'])}</td>"
-        f"<td>{_signed(row['available_mean'])}</td><td>{_signed(row['gap'])}</td>"
-        f"<td>{_num(row['inflation'], 2)}×</td></tr>"
+        f"<tr><td>{fz.FACTORS[key].name}</td><td>{signed(row['period_mean'], digits=4)}</td>"
+        f"<td>{signed(row['available_mean'], digits=4)}</td><td>{signed(row['gap'], digits=4)}</td>"
+        f"<td>{num(row['inflation'], digits=2)}×</td></tr>"
         for key, row in report["pit"]["lookahead"].items()
     )
     return f"""<!DOCTYPE html>
@@ -553,7 +542,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "flag": "通过" if dim_winners else "未通过",
         },
         "lookahead": {
-            "text": f"中位虚增 {_signed(typical_gap)} IC" if typical_gap is not None else "样本不足",
+            "text": f"中位虚增 {signed(typical_gap, digits=4)} IC" if typical_gap is not None else "样本不足",
         },
     }
     best = max(results.items(), key=lambda kv: (kv[1]["incremental"]["mean"] or -9))
@@ -604,9 +593,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"[5/5] 完成 → {outdir}", flush=True)
     for key, row in sorted(results.items(), key=lambda kv: -(kv[1]["incremental"]["mean"] or -9)):
         inc = row["incremental"]
-        print(f"      {fz.FACTORS[key].name:<12} raw {_signed(inc['mean'])} "
-              f"[{_signed(inc['ci_low'])}, {_signed(inc['ci_high'])}] "
-              f"Δ组合 {_signed(row['combination']['delta']['mean'])}", flush=True)
+        print(f"      {fz.FACTORS[key].name:<12} raw {signed(inc['mean'], digits=4)} "
+              f"[{signed(inc['ci_low'], digits=4)}, {signed(inc['ci_high'], digits=4)}] "
+              f"Δ组合 {signed(row['combination']['delta']['mean'], digits=4)}", flush=True)
     print(f"      越界 {pit['violations']} 条；中位滞后 {median_lag:.0f} 天", flush=True)
     return 0
 

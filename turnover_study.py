@@ -34,6 +34,7 @@ import rebalance as rb
 import xsec
 from market_data import MarketDataError
 from walkforward import load_benchmark, load_universe
+from reporting import fmt
 
 ROOT = Path(__file__).resolve().parent
 REPORT_DIR = ROOT / "reports" / "turnover"
@@ -554,14 +555,6 @@ def _criteria(tuned: dict[str, Any], bench: dict[str, Any],
 # 报告
 # --------------------------------------------------------------------------- #
 
-def _fmt(value: Any, digits: int = 2, suffix: str = "") -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, str):
-        return value
-    return f"{value:.{digits}f}{suffix}"
-
-
 def render_markdown(report: dict[str, Any]) -> str:
     base = report["baseline"]
     tuned = report["tuned"]
@@ -578,22 +571,22 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "| 指标 | 基线（Top20%，无 buffer） | 改进方案 | 等权基准 |",
         "| --- | ---: | ---: | ---: |",
-        f"| 年换手（单边） | {_fmt(base['metrics']['annual_turnover'], 0, '%')} | "
-        f"{_fmt(tuned['metrics']['annual_turnover'], 0, '%')} | {_fmt(bench['annual_turnover'], 0, '%')} |",
-        f"| 成本拖累 | {_fmt(base['metrics']['cost_drag_bps'], 0, 'bp/年')} | "
-        f"{_fmt(tuned['metrics']['cost_drag_bps'], 0, 'bp/年')} | {_fmt(bench['cost_drag_bps'], 0, 'bp/年')} |",
-        f"| 净 Sharpe | {_fmt(base['metrics']['sharpe'], 3)} | {_fmt(tuned['metrics']['sharpe'], 3)} | "
-        f"{_fmt(bench['sharpe'], 3)} |",
-        f"| 年化收益 | {_fmt(base['metrics']['annual_return'], 2, '%')} | "
-        f"{_fmt(tuned['metrics']['annual_return'], 2, '%')} | {_fmt(bench['annual_return'], 2, '%')} |",
-        f"| 最大回撤 | {_fmt(base['metrics']['max_drawdown'], 2, '%')} | "
-        f"{_fmt(tuned['metrics']['max_drawdown'], 2, '%')} | {_fmt(bench['max_drawdown'], 2, '%')} |",
-        f"| 相邻持仓 Jaccard | {_fmt(base['metrics']['jaccard'], 3)} | "
-        f"{_fmt(tuned['metrics']['jaccard'], 3)} | — |",
-        f"| cap 触发率 | {_fmt(base['metrics']['cap_trigger_rate'], 1, '%')} | "
-        f"{_fmt(tuned['metrics']['cap_trigger_rate'], 1, '%')} | — |",
-        f"| 平均持仓数 | {_fmt(base['metrics']['mean_holdings'], 1)} | "
-        f"{_fmt(tuned['metrics']['mean_holdings'], 1)} | — |",
+        f"| 年换手（单边） | {fmt(base['metrics']['annual_turnover'], digits=0, suffix='%', signed=False)} | "
+        f"{fmt(tuned['metrics']['annual_turnover'], digits=0, suffix='%', signed=False)} | {fmt(bench['annual_turnover'], digits=0, suffix='%', signed=False)} |",
+        f"| 成本拖累 | {fmt(base['metrics']['cost_drag_bps'], digits=0, suffix='bp/年', signed=False)} | "
+        f"{fmt(tuned['metrics']['cost_drag_bps'], digits=0, suffix='bp/年', signed=False)} | {fmt(bench['cost_drag_bps'], digits=0, suffix='bp/年', signed=False)} |",
+        f"| 净 Sharpe | {fmt(base['metrics']['sharpe'], signed=False)} | {fmt(tuned['metrics']['sharpe'], signed=False)} | "
+        f"{fmt(bench['sharpe'], signed=False)} |",
+        f"| 年化收益 | {fmt(base['metrics']['annual_return'], digits=2, suffix='%', signed=False)} | "
+        f"{fmt(tuned['metrics']['annual_return'], digits=2, suffix='%', signed=False)} | {fmt(bench['annual_return'], digits=2, suffix='%', signed=False)} |",
+        f"| 最大回撤 | {fmt(base['metrics']['max_drawdown'], digits=2, suffix='%', signed=False)} | "
+        f"{fmt(tuned['metrics']['max_drawdown'], digits=2, suffix='%', signed=False)} | {fmt(bench['max_drawdown'], digits=2, suffix='%', signed=False)} |",
+        f"| 相邻持仓 Jaccard | {fmt(base['metrics']['jaccard'], signed=False)} | "
+        f"{fmt(tuned['metrics']['jaccard'], signed=False)} | — |",
+        f"| cap 触发率 | {fmt(base['metrics']['cap_trigger_rate'], digits=1, suffix='%', signed=False)} | "
+        f"{fmt(tuned['metrics']['cap_trigger_rate'], digits=1, suffix='%', signed=False)} | — |",
+        f"| 平均持仓数 | {fmt(base['metrics']['mean_holdings'], digits=1, signed=False)} | "
+        f"{fmt(tuned['metrics']['mean_holdings'], digits=1, signed=False)} | — |",
         "",
         "cap 触发率两栏都是 0%，因为单次单边换手上限设的是 100%——按单边口径，一次调仓"
         "最多也就 100%，永远不会触发。基线报告里的「触发」来自 40% 的兜底被放宽到 100%。"
@@ -620,8 +613,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["search"]["frontier"]:
         lines.append(
-            f"| {row['bucket']} | {row['n']} | {_fmt(row['best_sharpe'], 3)} | "
-            f"{_fmt(row['cost_drag_bps'], 0, 'bp')} | {row['params']} |"
+            f"| {row['bucket']} | {row['n']} | {fmt(row['best_sharpe'], signed=False)} | "
+            f"{fmt(row['cost_drag_bps'], digits=0, suffix='bp', signed=False)} | {row['params']} |"
         )
     lines += [
         "",
@@ -639,9 +632,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         lines.append(
             f"| {row['entry_pct'] * 100:.0f}% | {row['exit_pct'] * 100:.0f}% | {row['hold']} | "
             f"{row['smoothing']:.0f} | {row['tranche']} | "
-            f"{_fmt(row['metrics']['annual_turnover'], 0, '%')} | "
-            f"{_fmt(row['metrics']['sharpe'], 3)} | {_fmt(row['metrics']['cost_drag_bps'], 0, 'bp')} | "
-            f"{_fmt(row['metrics']['jaccard'], 3)} |"
+            f"{fmt(row['metrics']['annual_turnover'], digits=0, suffix='%', signed=False)} | "
+            f"{fmt(row['metrics']['sharpe'], signed=False)} | {fmt(row['metrics']['cost_drag_bps'], digits=0, suffix='bp', signed=False)} | "
+            f"{fmt(row['metrics']['jaccard'], signed=False)} |"
         )
     ic = tuned.get("ic") or {}
     lines += [
@@ -653,13 +646,13 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "| 口径 | IC | 95% 区间 | 说明 |",
         "| --- | ---: | --- | --- |",
-        f"| 原始评分 | {_fmt((ic.get('raw') or {}).get('mean'), 4)} | "
-        f"[{_fmt((ic.get('raw') or {}).get('ci_low'), 4)}, {_fmt((ic.get('raw') or {}).get('ci_high'), 4)}] | "
+        f"| 原始评分 | {fmt((ic.get('raw') or {}).get('mean'), digits=4, signed=False)} | "
+        f"[{fmt((ic.get('raw') or {}).get('ci_low'), digits=4, signed=False)}, {fmt((ic.get('raw') or {}).get('ci_high'), digits=4, signed=False)}] | "
         "每期按当前评分算 |",
-        f"| buffer 生效后 | {_fmt((ic.get('sticky') or {}).get('mean'), 4)} | "
-        f"[{_fmt((ic.get('sticky') or {}).get('ci_low'), 4)}, {_fmt((ic.get('sticky') or {}).get('ci_high'), 4)}] | "
+        f"| buffer 生效后 | {fmt((ic.get('sticky') or {}).get('mean'), digits=4, signed=False)} | "
+        f"[{fmt((ic.get('sticky') or {}).get('ci_low'), digits=4, signed=False)}, {fmt((ic.get('sticky') or {}).get('ci_high'), digits=4, signed=False)}] | "
         "持仓用入场时的评分（被冻结） |",
-        f"| 降幅 | **{_fmt(ic.get('drop'), 5)}** | — | 上限 {report['params']['ic_drop_limit']} |",
+        f"| 降幅 | **{fmt(ic.get('drop'), digits=5, signed=False)}** | — | 上限 {report['params']['ic_drop_limit']} |",
         "",
         f"共 {ic.get('n_dates')} 个调仓截面。降幅为正说明 buffer 让信号变钝，"
         "这是省换手必须付的价钱；超过 0.005 就说明省下的成本是拿 alpha 换的。",
@@ -671,9 +664,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["sensitivity"]:
         lines.append(
-            f"| {row['cost_bps']:.0f}bp | {_fmt(row['annual_turnover'], 0, '%')} | "
-            f"{_fmt(row['cost_drag_bps'], 0, 'bp')} | {_fmt(row['sharpe'], 3)} | "
-            f"{_fmt(row['annual_return'], 2, '%')} |"
+            f"| {row['cost_bps']:.0f}bp | {fmt(row['annual_turnover'], digits=0, suffix='%', signed=False)} | "
+            f"{fmt(row['cost_drag_bps'], digits=0, suffix='bp', signed=False)} | {fmt(row['sharpe'], signed=False)} | "
+            f"{fmt(row['annual_return'], digits=2, suffix='%', signed=False)} |"
         )
     lines += [
         "",
@@ -690,8 +683,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     }
     for row in report.get("variants", []):
         lines.append(
-            f"| {row['label']} | {_fmt(row['dev']['sharpe'], 3)} | {_fmt(row['full']['sharpe'], 3)} | "
-            f"{_fmt(row['full']['annual_turnover'], 0, '%')} | {_fmt(row['full']['annual_return'], 2, '%')} | "
+            f"| {row['label']} | {fmt(row['dev']['sharpe'], signed=False)} | {fmt(row['full']['sharpe'], signed=False)} | "
+            f"{fmt(row['full']['annual_turnover'], digits=0, suffix='%', signed=False)} | {fmt(row['full']['annual_return'], digits=2, suffix='%', signed=False)} | "
             f"{reasons.get(row['label'], '')} |"
         )
     cap = report["capacity"]
@@ -716,10 +709,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "| 口径 | 收益 | 说明 |",
         "| --- | ---: | --- |",
-        f"| 改进方案（5 日调仓） | {_fmt(tuned['metrics']['total_return'], 2, '%')} | 含成本 |",
-        f"| 买入持有首期 Top20% | {_fmt(report['buy_and_hold']['total_return'], 2, '%')} | "
+        f"| 改进方案（5 日调仓） | {fmt(tuned['metrics']['total_return'], digits=2, suffix='%', signed=False)} | 含成本 |",
+        f"| 买入持有首期 Top20% | {fmt(report['buy_and_hold']['total_return'], digits=2, suffix='%', signed=False)} | "
         f"{report['buy_and_hold']['symbols']} 只，只付一次进场成本 |",
-        f"| 等权基准 | {_fmt(bench['total_return'], 2, '%')} | 同区间、不计成本 |",
+        f"| 等权基准 | {fmt(bench['total_return'], digits=2, suffix='%', signed=False)} | 同区间、不计成本 |",
         "",
         "两者之差是**再平衡效应**（调仓的贡献），不是选股 alpha。若买持更高，说明这个样本上"
         "再平衡是负贡献，应继续降频或加宽缓冲带。",
@@ -728,15 +721,15 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "| 口径 | 年换手 | 净 Sharpe | 年化收益 |",
         "| --- | ---: | ---: | ---: |",
-        f"| 基线 | {_fmt(report['holdout']['baseline']['annual_turnover'], 0, '%')} | "
-        f"{_fmt(report['holdout']['baseline']['sharpe'], 3)} | "
-        f"{_fmt(report['holdout']['baseline']['annual_return'], 2, '%')} |",
-        f"| 改进方案 | {_fmt(report['holdout']['tuned']['annual_turnover'], 0, '%')} | "
-        f"{_fmt(report['holdout']['tuned']['sharpe'], 3)} | "
-        f"{_fmt(report['holdout']['tuned']['annual_return'], 2, '%')} |",
-        f"| 等权基准 | {_fmt((report['holdout'].get('benchmark') or {}).get('annual_turnover'), 0, '%')} | "
-        f"{_fmt((report['holdout'].get('benchmark') or {}).get('sharpe'), 3)} | "
-        f"{_fmt((report['holdout'].get('benchmark') or {}).get('annual_return'), 2, '%')} |",
+        f"| 基线 | {fmt(report['holdout']['baseline']['annual_turnover'], digits=0, suffix='%', signed=False)} | "
+        f"{fmt(report['holdout']['baseline']['sharpe'], signed=False)} | "
+        f"{fmt(report['holdout']['baseline']['annual_return'], digits=2, suffix='%', signed=False)} |",
+        f"| 改进方案 | {fmt(report['holdout']['tuned']['annual_turnover'], digits=0, suffix='%', signed=False)} | "
+        f"{fmt(report['holdout']['tuned']['sharpe'], signed=False)} | "
+        f"{fmt(report['holdout']['tuned']['annual_return'], digits=2, suffix='%', signed=False)} |",
+        f"| 等权基准 | {fmt((report['holdout'].get('benchmark') or {}).get('annual_turnover'), digits=0, suffix='%', signed=False)} | "
+        f"{fmt((report['holdout'].get('benchmark') or {}).get('sharpe'), signed=False)} | "
+        f"{fmt((report['holdout'].get('benchmark') or {}).get('annual_return'), digits=2, suffix='%', signed=False)} |",
         "",
         "## 9. 通过标准",
         "",
@@ -749,10 +742,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         if value is None:
             return "—"
         if "换手" in name:
-            return _fmt(value, 1, "%")
+            return fmt(value, digits=1, suffix="%", signed=False)
         if "IC" in name:
-            return _fmt(value, 5)
-        return _fmt(value, 3)
+            return fmt(value, digits=5, signed=False)
+        return fmt(value, signed=False)
 
     for item in report["criteria"]:
         lines.append(

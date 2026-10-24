@@ -23,7 +23,7 @@ PRODUCTION = (
     "execution.py", "rebalance.py", "crossasset.py", "etf_allocation.py",
     "regime.py", "scoring.py",
     # 公共层：纯计算 / 纯字符串，同样必须保持零第三方依赖
-    "costs.py", "stats.py",
+    "costs.py", "stats.py", "reporting.py",
 )
 RESEARCH = ("research/fundamentals.py", "research/pit_join.py", "research/fetch_alt.py",
             "research/datasets/base.py", "research/datasets/eastmoney_flows.py",

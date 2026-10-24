@@ -43,6 +43,7 @@ import execution as ex
 import fields as fd
 import protocol as pr
 from xsec import BUY_COST, SELL_COST
+from reporting import fmt, inline
 
 ROOT = Path(__file__).resolve().parent
 STOCK_CACHE = ROOT / ".cache" / "fields" / "stocks"
@@ -631,14 +632,6 @@ def calibrate(stocks: Sequence[dict[str, Any]], etf_panel: dict[str, dict[str, A
 # --------------------------------------------------------------------------- #
 
 
-def _fmt(value: Any, digits: int = 3, suffix: str = "") -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, (int, float)):
-        return f"{value:+.{digits}f}{suffix}"
-    return str(value)
-
-
 def _share(value: Any, digits: int = 1) -> str:
     """比率类字段（占比、比例）不加正负号。"""
     if value is None:
@@ -648,8 +641,8 @@ def _share(value: Any, digits: int = 1) -> str:
 
 def _ci_text(stat: dict[str, Any]) -> str:
     if stat.get("ci_low") is None:
-        return f"{_fmt(stat.get('mean'))}（样本不足）"
-    return f"{_fmt(stat.get('mean'))} [{_fmt(stat.get('ci_low'))}, {_fmt(stat.get('ci_high'))}]"
+        return f"{fmt(stat.get('mean'))}（样本不足）"
+    return f"{fmt(stat.get('mean'))} [{fmt(stat.get('ci_low'))}, {fmt(stat.get('ci_high'))}]"
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -667,16 +660,16 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("| 字段 | 用途 | 核心指标 | 数值 | 判定 |")
     add("|---|---|---|---|---|")
     add(f"| 趋势状态 | 描述 | 未来波动逐标的 Spearman | "
-        f"{_fmt(descriptor['labels']['vol']['per_symbol_mean'])} | "
+        f"{fmt(descriptor['labels']['vol']['per_symbol_mean'])} | "
         f"{'通过' if descriptor['pass'] else '未通过'} |")
     add(f"| 横截面分位 | 选股 | 锁箱期 IC 区间 | "
         f"{_ci_text(selection['signals']['descriptor']['lockbox'])} | "
         f"{'通过' if selection['pass'] else '未通过'} |")
     add(f"| 市场 regime | 择时 | 最大回撤改善 | "
-        f"{_fmt(regime['improvement_pp'], 2, 'pp')} | {'通过' if regime['pass'] else '未通过'} |")
+        f"{fmt(regime['improvement_pp'], digits=2, suffix='pp')} | {'通过' if regime['pass'] else '未通过'} |")
     add(f"| 跨资产 ETF | 配置 | 净 Sharpe / 回撤 | "
-        f"{_fmt(cross['strategy']['metrics'].get('sharpe'))} / "
-        f"{_fmt(cross['strategy']['metrics'].get('max_drawdown'), 2, '%')} | "
+        f"{fmt(cross['strategy']['metrics'].get('sharpe'))} / "
+        f"{fmt(cross['strategy']['metrics'].get('max_drawdown'), digits=2, suffix='%')} | "
         f"{'通过' if cross['pass'] else '未通过'} |")
     add("")
     add("通过标准（写死在 `PASS_CRITERIA`）：\n")
@@ -694,9 +687,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("|---|---|---|---|---|---|")
     for label in RISK_LABELS:
         row = descriptor["labels"][label]
-        add(f"| {RISK_LABEL_CN[label]} | {_fmt(row['per_symbol_mean'])} | "
-            f"{_fmt(row['per_symbol_median'])} | {_share(row['per_symbol_share_negative'])} | "
-            f"{_fmt(row['pooled'])} | {row['n_samples']} |")
+        add(f"| {RISK_LABEL_CN[label]} | {fmt(row['per_symbol_mean'])} | "
+            f"{fmt(row['per_symbol_median'])} | {_share(row['per_symbol_share_negative'])} | "
+            f"{fmt(row['pooled'])} | {row['n_samples']} |")
     add("")
     add("### 1.2 分位桶单调性\n")
     add("按「相对自身近 60 日分位」分成五桶，看未来风险是否随桶号单调上升。\n")
@@ -704,8 +697,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("|---|---|---|---|---|---|---|")
     for label in RISK_LABELS:
         row = descriptor["labels"][label]
-        cells = " | ".join(_fmt(value, 3) for value in row["bucket_means"])
-        add(f"| {RISK_LABEL_CN[label]} | {cells} | {_fmt(row['bucket_monotone'])} |")
+        cells = " | ".join(fmt(value) for value in row["bucket_means"])
+        add(f"| {RISK_LABEL_CN[label]} | {cells} | {fmt(row['bucket_monotone'])} |")
     add("")
     add("### 1.3 半年子样本稳定性\n")
     add("表内是每个半年「先按标的算、再等权平均」的 Spearman；判定用的同期池化值在下方单列。"
@@ -714,7 +707,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("| 半年 | " + " | ".join(RISK_LABEL_CN[label] for label in RISK_LABELS) + " |")
     add("|---" * (len(RISK_LABELS) + 1) + "|")
     for key in halves:
-        cells = " | ".join(_fmt(descriptor["labels"][label]["halves"].get(key)) for label in RISK_LABELS)
+        cells = " | ".join(fmt(descriptor["labels"][label]["halves"].get(key)) for label in RISK_LABELS)
         add(f"| {key} | {cells} |")
     add("| 池化达标比例 | " + " | ".join(
         _share(descriptor["labels"][label]["halves_strong_share"]) for label in RISK_LABELS
@@ -724,7 +717,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("| 半年 | " + " | ".join(RISK_LABEL_CN[label] for label in RISK_LABELS) + " |")
     add("|---" * (len(RISK_LABELS) + 1) + "|")
     for key in halves:
-        cells = " | ".join(_fmt(descriptor["labels"][label]["halves"].get(key)) for label in RISK_LABELS)
+        cells = " | ".join(fmt(descriptor["labels"][label]["halves"].get(key)) for label in RISK_LABELS)
         add(f"| {key} | {cells} |")
     add("| 同号占比 | " + " | ".join(
         _share(descriptor["labels"][label]["halves_negative_share"]) for label in RISK_LABELS
@@ -744,10 +737,10 @@ def render_markdown(report: dict[str, Any]) -> str:
     for name in selection["signals"]:
         for period, label in (("dev", "开发期"), ("lockbox", "锁箱期"), ("full", "全样本")):
             stat = selection["signals"][name][period]
-            add(f"| {names[name]} | {label} | {_fmt(stat.get('mean'))} | "
-                f"[{_fmt(stat.get('ci_low'))}, {_fmt(stat.get('ci_high'))}] | "
-                f"{_share(stat.get('positive_rate'))} | {_fmt(stat.get('p'))} | "
-                f"{_fmt(stat.get('fdr_q'))} |")
+            add(f"| {names[name]} | {label} | {fmt(stat.get('mean'))} | "
+                f"[{fmt(stat.get('ci_low'))}, {fmt(stat.get('ci_high'))}] | "
+                f"{_share(stat.get('positive_rate'))} | {fmt(stat.get('p'))} | "
+                f"{fmt(stat.get('fdr_q'))} |")
     add("")
     add(f"组合层：前 20% 等权、{REBALANCE} 日调仓、T+1 开盘、双边成本 "
         f"{BUY_COST * 10000:.1f}/{SELL_COST * 10000:.1f}bp。判定看锁箱期，全样本只作对照。\n")
@@ -757,9 +750,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         block = selection.get(key) or {}
         for label, side in (("池内分位 Top20%", "strategy"), ("同池等权", "equal_weight")):
             metrics = (block.get(side) or {}).get("metrics") or {}
-            add(f"| {period} | {label} | {_fmt(metrics.get('cagr'), 2, '%')} | {_fmt(metrics.get('vol'), 2, '%')} | "
-                f"{_fmt(metrics.get('sharpe'))} | {_fmt(metrics.get('max_drawdown'), 2, '%')} | "
-                f"{_fmt((block.get(side) or {}).get('total_cost', 0), 3)} |")
+            add(f"| {period} | {label} | {fmt(metrics.get('cagr'), digits=2, suffix='%')} | {fmt(metrics.get('vol'), digits=2, suffix='%')} | "
+                f"{fmt(metrics.get('sharpe'))} | {fmt(metrics.get('max_drawdown'), digits=2, suffix='%')} | "
+                f"{fmt((block.get(side) or {}).get('total_cost', 0))} |")
     add("")
 
     add("## 3. 市场 regime（择时口径）\n")
@@ -770,8 +763,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("|---|---|---|")
     for label, key in (("年化收益", "cagr"), ("年化波动", "vol"), ("Sharpe", "sharpe"), ("最大回撤", "max_drawdown")):
         suffix = "" if key == "sharpe" else "%"
-        add(f"| {label} | {_fmt(regime['regime'].get(key), 2, suffix)} | "
-            f"{_fmt(regime['always_in'].get(key), 2, suffix)} |")
+        add(f"| {label} | {fmt(regime['regime'].get(key), digits=2, suffix=suffix)} | "
+            f"{fmt(regime['always_in'].get(key), digits=2, suffix=suffix)} |")
     add("")
     dist = regime["distribution"]
     add(f"状态分布：风险偏好上行 {dist.get('risk_on')}% / 中性 {dist.get('neutral')}% / 防守 {dist.get('risk_off')}%；"
@@ -818,24 +811,6 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _inline(text: str) -> str:
-    """只处理本报告用到的行内语法：**粗体** 与 `代码`。"""
-    out = text
-    while "**" in out:
-        first = out.index("**")
-        second = out.find("**", first + 2)
-        if second < 0:
-            break
-        out = f"{out[:first]}<strong>{out[first + 2:second]}</strong>{out[second + 2:]}"
-    while "`" in out:
-        first = out.index("`")
-        second = out.find("`", first + 1)
-        if second < 0:
-            break
-        out = f"{out[:first]}<code>{out[first + 1:second]}</code>{out[second + 1:]}"
-    return out
-
-
 def render_html(report: dict[str, Any], markdown: str) -> str:
     """把 markdown 表格轻量转成 HTML（只处理本报告用到的语法）。"""
     body: list[str] = []
@@ -849,9 +824,9 @@ def render_html(report: dict[str, Any], markdown: str) -> str:
             if not in_table:
                 body.append("<table>")
                 in_table = True
-                body.append("<tr>" + "".join(f"<th>{_inline(cell)}</th>" for cell in cells) + "</tr>")
+                body.append("<tr>" + "".join(f"<th>{inline(cell)}</th>" for cell in cells) + "</tr>")
             else:
-                body.append("<tr>" + "".join(f"<td>{_inline(cell)}</td>" for cell in cells) + "</tr>")
+                body.append("<tr>" + "".join(f"<td>{inline(cell)}</td>" for cell in cells) + "</tr>")
             continue
         if in_table:
             body.append("</table>")
@@ -863,9 +838,9 @@ def render_html(report: dict[str, Any], markdown: str) -> str:
         elif stripped.startswith("### "):
             body.append(f"<h3>{stripped[4:]}</h3>")
         elif stripped.startswith("- "):
-            body.append(f"<li>{_inline(stripped[2:])}</li>")
+            body.append(f"<li>{inline(stripped[2:])}</li>")
         elif stripped:
-            body.append(f"<p>{_inline(stripped)}</p>")
+            body.append(f"<p>{inline(stripped)}</p>")
     if in_table:
         body.append("</table>")
     css = """

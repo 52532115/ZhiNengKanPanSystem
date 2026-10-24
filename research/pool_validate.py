@@ -35,6 +35,7 @@ from market_data import MarketDataError
 from . import clean, pit
 from .manifest import CACHE_ROOT, ROOT, Dataset, latest_version
 from .universe import PitUniverse, field_audit, to_history
+from reporting import fmt
 
 REPORT_DIR = ROOT / "reports" / "pool"
 EVAL_START = "2018-01-01"
@@ -575,14 +576,6 @@ def _criteria(
 # 报告
 # --------------------------------------------------------------------------- #
 
-def _fmt(value: Any, digits: int = 3, suffix: str = "") -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, str):
-        return value
-    return f"{value:+.{digits}f}{suffix}" if digits else f"{value}{suffix}"
-
-
 def render_markdown(report: dict[str, Any]) -> str:
     criteria = report["criteria"]
     survivorship = report["survivorship"]
@@ -682,12 +675,12 @@ def render_markdown(report: dict[str, Any]) -> str:
     for name, item in report["comparisons"].items():
         left, right = item["pit"], item["legacy"]
         lines.append(
-            f"| {name} | {_fmt((left.get('ic') or {}).get('mean'), 4)} | "
-            f"{_fmt((right.get('ic') or {}).get('mean'), 4)} | "
-            f"{_fmt(item['ic_diff_pct'], 1, '%')} | "
-            f"{_fmt((left.get('nav') or {}).get('total_return'), 2, '%')} | "
-            f"{_fmt((right.get('nav') or {}).get('total_return'), 2, '%')} | "
-            f"{_fmt(item['nav_diff_pct'], 1, '%')} | {'是' if item['same_sign'] else '否'} |"
+            f"| {name} | {fmt((left.get('ic') or {}).get('mean'), digits=4)} | "
+            f"{fmt((right.get('ic') or {}).get('mean'), digits=4)} | "
+            f"{fmt(item['ic_diff_pct'], digits=1, suffix='%')} | "
+            f"{fmt((left.get('nav') or {}).get('total_return'), digits=2, suffix='%')} | "
+            f"{fmt((right.get('nav') or {}).get('total_return'), digits=2, suffix='%')} | "
+            f"{fmt(item['nav_diff_pct'], digits=1, suffix='%')} | {'是' if item['same_sign'] else '否'} |"
         )
     lines += ["", "## 6. 分层回测", "",
               "| 层 | IC | 95% 区间 | 横截面均只数 | 净净值 | 等权基准 | 超额 | 最大回撤 | 有效宽度 | 平均持仓 |",
@@ -696,12 +689,12 @@ def render_markdown(report: dict[str, Any]) -> str:
         ic = item.get("ic") or {}
         nav = item.get("nav") or {}
         lines.append(
-            f"| {LAYER_LABELS.get(layer, layer)} | {_fmt(ic.get('mean'), 4)} | "
-            f"[{_fmt(ic.get('ci_low'), 4)}, {_fmt(ic.get('ci_high'), 4)}] | "
+            f"| {LAYER_LABELS.get(layer, layer)} | {fmt(ic.get('mean'), digits=4)} | "
+            f"[{fmt(ic.get('ci_low'), digits=4)}, {fmt(ic.get('ci_high'), digits=4)}] | "
             f"{item.get('xsec_mean')} | "
-            f"{_fmt(nav.get('total_return'), 2, '%')} | "
-            f"{_fmt((item.get('benchmark') or {}).get('total_return'), 2, '%')} | "
-            f"{_fmt(item.get('excess'), 2, '%')} | {_fmt(nav.get('max_drawdown'), 2, '%')} | "
+            f"{fmt(nav.get('total_return'), digits=2, suffix='%')} | "
+            f"{fmt((item.get('benchmark') or {}).get('total_return'), digits=2, suffix='%')} | "
+            f"{fmt(item.get('excess'), digits=2, suffix='%')} | {fmt(nav.get('max_drawdown'), digits=2, suffix='%')} | "
             f"{(item.get('breadth') or {}).get('effective_holdings')} | {item.get('holdings_mean')} |"
         )
     lines += ["", "## 7. 通过标准", "", "| 标准 | 实测 | 判定 |", "| --- | ---: | --- |"]

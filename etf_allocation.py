@@ -42,6 +42,7 @@ from typing import Any, Callable, Sequence
 import costs
 import execution as ex
 import stats
+from reporting import num, signed
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache" / "fields" / "etf"
@@ -1333,14 +1334,6 @@ def evaluate(
 # --------------------------------------------------------------------------- #
 
 
-def _num(value: Any, digits: int = 2) -> str:
-    return "—" if value is None else f"{value:.{digits}f}"
-
-
-def _signed(value: Any, digits: int = 2) -> str:
-    return "—" if value is None else f"{value:+.{digits}f}"
-
-
 def _svg_nav(navs: dict[str, list[dict[str, Any]]], *, width: int = 920, height: int = 320) -> str:
     pad = 44
     values = [point["nav"] for series in navs.values() for point in series]
@@ -1432,9 +1425,9 @@ def render_markdown(study: dict[str, Any], meta: dict[str, Any]) -> str:
         for row in list(results.values()) + list(benchmarks.values())
     )
     period_rows = "\n".join(
-        f"| {label} | {_signed(row.get('BASE', {}).get('return'))}% / {_num(row.get('BASE', {}).get('max_drawdown'))}% | "
-        f"{_signed(row.get('EW', {}).get('return'))}% / {_num(row.get('EW', {}).get('max_drawdown'))}% | "
-        f"{_signed(row.get('6040', {}).get('return'))}% / {_num(row.get('6040', {}).get('max_drawdown'))}% |"
+        f"| {label} | {signed(row.get('BASE', {}).get('return'), digits=2)}% / {num(row.get('BASE', {}).get('max_drawdown'), digits=2)}% | "
+        f"{signed(row.get('EW', {}).get('return'), digits=2)}% / {num(row.get('EW', {}).get('max_drawdown'), digits=2)}% | "
+        f"{signed(row.get('6040', {}).get('return'), digits=2)}% / {num(row.get('6040', {}).get('max_drawdown'), digits=2)}% |"
         for label, row in study["periods"].items()
     )
     universe_rows = "\n".join(
@@ -1529,9 +1522,9 @@ def render_html(study: dict[str, Any], meta: dict[str, Any]) -> str:
     )
     period_rows = "".join(
         f"<tr><td>{label}</td>"
-        f"<td>{_signed(row.get('BASE', {}).get('return'))}% / {_num(row.get('BASE', {}).get('max_drawdown'))}%</td>"
-        f"<td>{_signed(row.get('EW', {}).get('return'))}% / {_num(row.get('EW', {}).get('max_drawdown'))}%</td>"
-        f"<td>{_signed(row.get('6040', {}).get('return'))}% / {_num(row.get('6040', {}).get('max_drawdown'))}%</td></tr>"
+        f"<td>{signed(row.get('BASE', {}).get('return'), digits=2)}% / {num(row.get('BASE', {}).get('max_drawdown'), digits=2)}%</td>"
+        f"<td>{signed(row.get('EW', {}).get('return'), digits=2)}% / {num(row.get('EW', {}).get('max_drawdown'), digits=2)}%</td>"
+        f"<td>{signed(row.get('6040', {}).get('return'), digits=2)}% / {num(row.get('6040', {}).get('max_drawdown'), digits=2)}%</td></tr>"
         for label, row in study["periods"].items()
     )
     universe_rows = "".join(

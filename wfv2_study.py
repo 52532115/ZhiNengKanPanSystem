@@ -40,6 +40,7 @@ import scoring
 import xsec
 import wfv2
 from research import universe
+from reporting import num, signed
 
 ROOT = Path(__file__).resolve().parent
 FIELDS = ROOT / ".cache" / "fields"
@@ -547,14 +548,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 # --------------------------------------------------------------------------- #
 
 
-def _num(value: float | None, digits: int = 3) -> str:
-    return "—" if value is None else f"{value:.{digits}f}"
-
-
-def _signed(value: float | None, digits: int = 4) -> str:
-    return "—" if value is None else f"{value:+.{digits}f}"
-
-
 def _svg_nav(navs: dict[str, list[float]], *, width: int = 900, height: int = 300) -> str:
     pad = 42
     values = [value for series in navs.values() for value in series]
@@ -629,26 +622,26 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"| {row['fold']} | {row['test_start']} → {row['test_end']} | {row['n_train']} | {row['n_days_test']} | "
         f"{row['tau']} / {row['gamma']} | {row['members']} | "
         + " | ".join(
-            f"{_signed(next(r for r in report['results'][tag] if r['fold'] == row['fold'])['ic'])}"
+            f"{signed(next(r for r in report['results'][tag] if r['fold'] == row['fold'])['ic'], digits=4)}"
             for tag in ("EW", "SINGLE", "ENS", "ENS4")
         )
         + " |"
         for row in report["folds"]
     )
     summary_rows = "\n".join(
-        f"| {tag} | {_signed(row['pooled_ic'])} | [{_signed(row['pooled_ci'][0])}, {_signed(row['pooled_ci'][1])}] | "
-        f"{row['positive_folds']}/{row['n_folds']} | {_num(row['icir_mean'], 2)} | {row['turnover']:.0f}% | "
-        f"{row['net_cagr']:+.2f}% | {_num(row['net_sharpe'], 2)} | {row['max_drawdown']:.1f}% |"
+        f"| {tag} | {signed(row['pooled_ic'], digits=4)} | [{signed(row['pooled_ci'][0], digits=4)}, {signed(row['pooled_ci'][1], digits=4)}] | "
+        f"{row['positive_folds']}/{row['n_folds']} | {num(row['icir_mean'], digits=2)} | {row['turnover']:.0f}% | "
+        f"{row['net_cagr']:+.2f}% | {num(row['net_sharpe'], digits=2)} | {row['max_drawdown']:.1f}% |"
         for tag, row in summary.items()
     )
     stability_rows = "\n".join(
-        f"| {key} | " + " | ".join(_signed(value) for value in row["values"])
+        f"| {key} | " + " | ".join(signed(value, digits=4) for value in row["values"])
         + f" | {row['positive']}/{len(row['values'])} |"
         for key, row in report["stability"].items()
     )
     naive = report["naive_vs_block"]
     correlation_rows = "\n".join(
-        f"| {row['fold']} | {row['pairs']} | {_num(row['mean'], 3)} | {_num(row['max'], 3)} |"
+        f"| {row['fold']} | {row['pairs']} | {num(row['mean'], digits=3)} | {num(row['max'], digits=3)} |"
         for row in report["member_correlation"]
     )
     return f"""# 5 折 purged walk-forward 验证报告（v2）
@@ -690,7 +683,7 @@ def render_markdown(report: dict[str, Any]) -> str:
 
 ## 4. 有效样本：朴素 t vs 块自助 t
 
-合并 IC {_signed(naive['mean'])}；朴素标准误 {naive['naive_se']}（t={naive['naive_t']}），
+合并 IC {signed(naive['mean'], digits=4)}；朴素标准误 {naive['naive_se']}（t={naive['naive_t']}），
 块自助标准误 {naive['block_se']}（t={naive['block_t']}），**放大 {naive['inflation']}×**。
 区间 [{naive['ci'][0]}, {naive['ci'][1]}]。
 
@@ -708,7 +701,7 @@ def render_markdown(report: dict[str, Any]) -> str:
 | 折 | τ | γ | 内层目标 |
 | --- | --- | --- | --- |
 """ + "\n".join(
-        f"| {row['fold']} | {row['tau']} | {row['gamma']} | {_num((row.get('inner') or {}).get('metric'), 3)} |"
+        f"| {row['fold']} | {row['tau']} | {row['gamma']} | {num((row.get('inner') or {}).get('metric'), digits=3)} |"
         for row in report["hyper"]
     ) + f"""
 
@@ -730,22 +723,22 @@ def render_html(report: dict[str, Any]) -> str:
         f"<td>{row['n_train']}</td><td>{row['n_days_test']}</td><td>{row['tau']} / {row['gamma']}</td>"
         f"<td>{row['members']}</td>"
         + "".join(
-            f"<td>{_signed(next(r for r in report['results'][tag] if r['fold'] == row['fold'])['ic'])}</td>"
+            f"<td>{signed(next(r for r in report['results'][tag] if r['fold'] == row['fold'])['ic'], digits=4)}</td>"
             for tag in ("EW", "SINGLE", "ENS", "ENS4")
         )
         + "</tr>"
         for row in report["folds"]
     )
     summary_rows = "".join(
-        f"<tr><td>{tag}</td><td>{_signed(row['pooled_ic'])}</td>"
-        f"<td>[{_signed(row['pooled_ci'][0])}, {_signed(row['pooled_ci'][1])}]</td>"
-        f"<td>{row['positive_folds']}/{row['n_folds']}</td><td>{_num(row['icir_mean'], 2)}</td>"
+        f"<tr><td>{tag}</td><td>{signed(row['pooled_ic'], digits=4)}</td>"
+        f"<td>[{signed(row['pooled_ci'][0], digits=4)}, {signed(row['pooled_ci'][1], digits=4)}]</td>"
+        f"<td>{row['positive_folds']}/{row['n_folds']}</td><td>{num(row['icir_mean'], digits=2)}</td>"
         f"<td>{row['turnover']:.0f}%</td><td>{row['net_cagr']:+.2f}%</td>"
-        f"<td>{_num(row['net_sharpe'], 2)}</td><td>{row['max_drawdown']:.1f}%</td></tr>"
+        f"<td>{num(row['net_sharpe'], digits=2)}</td><td>{row['max_drawdown']:.1f}%</td></tr>"
         for tag, row in summary.items()
     )
     stability_rows = "".join(
-        f"<tr><td>{key}</td>" + "".join(f"<td>{_signed(value)}</td>" for value in row["values"])
+        f"<tr><td>{key}</td>" + "".join(f"<td>{signed(value, digits=4)}</td>" for value in row["values"])
         + f"<td>{row['positive']}/{len(row['values'])}</td></tr>"
         for key, row in report["stability"].items()
     )
@@ -799,11 +792,11 @@ th{{color:var(--muted);font-weight:600;font-size:12px;background:#fbfcfe}}
 
 <h2>5. 集成成员相关性</h2>
 <div class="card"><table><tr><th>折</th><th>成员对数</th><th>平均秩相关</th><th>最高秩相关</th></tr>
-{''.join(f"<tr><td>{row['fold']}</td><td>{row['pairs']}</td><td>{_num(row['mean'],3)}</td><td>{_num(row['max'],3)}</td></tr>" for row in report['member_correlation'])}
+{''.join(f"<tr><td>{row['fold']}</td><td>{row['pairs']}</td><td>{num(row['mean'], digits=3)}</td><td>{num(row['max'], digits=3)}</td></tr>" for row in report['member_correlation'])}
 </table><p class="sub">秩平均的降方差幅度约 1/(1+(n−1)ρ)。实测 ρ≈0.38，理论可降到约 1/3；实际没降下来，是因为等权平均同时把弱成员的偏差也平均进来了。</p></div>
 
 <h2>6. 有效样本：朴素 t vs 块自助 t</h2>
-<div class="card"><p class="sub">合并 IC {_signed(naive['mean'])}；朴素 SE {naive['naive_se']}（t={naive['naive_t']}），
+<div class="card"><p class="sub">合并 IC {signed(naive['mean'], digits=4)}；朴素 SE {naive['naive_se']}（t={naive['naive_t']}），
 块自助 SE {naive['block_se']}（t={naive['block_t']}），放大 <b>{naive['inflation']}×</b>；区间
 [{naive['ci'][0]}, {naive['ci'][1]}]。</p></div>
 

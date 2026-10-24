@@ -39,6 +39,7 @@ from analyzer import (
     weight_text,
 )
 from market_data import MarketDataClient, MarketDataError
+from reporting import fmt
 
 ROOT = Path(__file__).resolve().parent
 CACHE_DIR = ROOT / ".cache" / "walkforward"
@@ -839,13 +840,6 @@ def build_report(
     }
 
 
-def _fmt(value: float | None, suffix: str = "", digits: int = 2, signed: bool = True) -> str:
-    if value is None:
-        return "—"
-    template = f"{{:+.{digits}f}}" if signed else f"{{:.{digits}f}}"
-    return template.format(value) + suffix
-
-
 def _cell(value: float | None, suffix: str = "", invert: bool = False) -> str:
     """收益类数值：正为涨（红，沿用项目 .up 约定），负为跌（绿）。"""
     if value is None:
@@ -853,7 +847,7 @@ def _cell(value: float | None, suffix: str = "", invert: bool = False) -> str:
     tone = "wf-up" if value > 0 else "wf-down" if value < 0 else ""
     if invert:
         tone = ""
-    return f'<td class="num {tone}">{_fmt(value, suffix)}</td>'
+    return f'<td class="num {tone}">{fmt(value, digits=2, suffix=suffix)}</td>'
 
 
 def render_markdown(report: dict[str, Any]) -> str:
@@ -879,8 +873,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         for horizon in ("5", "20", "60"):
             stat = row["horizons"][horizon]
             cells.append(
-                f"| {_fmt(stat['mean'], '%')} | {_fmt(stat['win_rate'], '%', 1, signed=False)} "
-                f"| {_fmt(stat['mdd_mean'], '%')} "
+                f"| {fmt(stat['mean'], digits=2, suffix='%')} | {fmt(stat['win_rate'], digits=1, suffix='%', signed=False)} "
+                f"| {fmt(stat['mdd_mean'], digits=2, suffix='%')} "
             )
         lines.append("".join(cells) + "|")
 
@@ -889,20 +883,20 @@ def render_markdown(report: dict[str, Any]) -> str:
         ic = report["ic"][horizon]
         spread = report["spread"][horizon]
         lines.append(
-            f"- 未来 {horizon} 日：Spearman IC = {_fmt(ic['ic'], '', 3)}"
+            f"- 未来 {horizon} 日：Spearman IC = {fmt(ic['ic'])}"
             f"（有效样本 ≈ {ic['n_effective']}，t = {ic['t']}，{'显著' if ic['significant'] else '不显著'}），"
-            f"最高分桶 − 最低分桶 = {_fmt(spread['top_minus_bottom'], '%')}，"
+            f"最高分桶 − 最低分桶 = {fmt(spread['top_minus_bottom'], digits=2, suffix='%')}，"
             f"相邻分桶单调递增 {spread['monotone_pairs']}。"
         )
 
     if report.get("quantiles"):
         lines += ["", "## 分位数交叉验证（五等分）", ""]
         for horizon in ("5", "20", "60"):
-            series = [_fmt(item["horizons"][horizon]["mean"], "%") for item in report["quantiles"]]
+            series = [fmt(item["horizons"][horizon]["mean"], digits=2, suffix="%") for item in report["quantiles"]]
             low = report["quantiles"][0]["horizons"][horizon]["mean"]
             high = report["quantiles"][-1]["horizons"][horizon]["mean"]
             lines.append(
-                f"- 未来 {horizon} 日：Q1 → Q5 = {' → '.join(series)}，首尾差 {_fmt(high - low, '%')}。"
+                f"- 未来 {horizon} 日：Q1 → Q5 = {' → '.join(series)}，首尾差 {fmt(high - low, digits=2, suffix='%')}。"
             )
 
     excess = report.get("excess") or {}
@@ -920,7 +914,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             for horizon in ("5", "20", "60"):
                 stat = row["horizons"][horizon]
                 cells.append(
-                    f"| {_fmt(stat['mean'], '%')} | {_fmt(stat['win_rate'], '%', 1, signed=False)} "
+                    f"| {fmt(stat['mean'], digits=2, suffix='%')} | {fmt(stat['win_rate'], digits=1, suffix='%', signed=False)} "
                 )
             lines.append("".join(cells) + "|")
 
@@ -929,9 +923,9 @@ def render_markdown(report: dict[str, Any]) -> str:
             ic = excess["ic"][horizon]
             spread = excess["spread"][horizon]
             lines.append(
-                f"- 未来 {horizon} 日超额：Spearman IC = {_fmt(ic['ic'], '', 3)}"
+                f"- 未来 {horizon} 日超额：Spearman IC = {fmt(ic['ic'])}"
                 f"（t = {ic['t']}，{'显著' if ic['significant'] else '不显著'}），"
-                f"最高桶 − 最低桶 = {_fmt(spread['top_minus_bottom'], '%')}，"
+                f"最高桶 − 最低桶 = {fmt(spread['top_minus_bottom'], digits=2, suffix='%')}，"
                 f"单调 {spread['monotone_pairs']}。"
             )
 
@@ -950,8 +944,8 @@ def render_markdown(report: dict[str, Any]) -> str:
                 lines.append(f"| {horizon} 日 | — | — | — |")
             else:
                 lines.append(
-                    f"| {horizon} 日 | {_fmt(stat['ic'], '', 3)} | {stat['t']} | "
-                    f"{_fmt(stat['positive_rate'], '%', 1, signed=False)}（{stat['n_dates']} 天） |"
+                    f"| {horizon} 日 | {fmt(stat['ic'])} | {stat['t']} | "
+                    f"{fmt(stat['positive_rate'], digits=1, suffix='%', signed=False)}（{stat['n_dates']} 天） |"
                 )
         lines += [
             "",
@@ -980,9 +974,9 @@ def render_markdown(report: dict[str, Any]) -> str:
         for row in report["per_symbol_detail"]:
             lines.append(
                 f"| {row['name']}（{row['symbol']}） | {row['score_mean']} | {row['n']} | "
-                f"{_fmt(row['ic20'], '', 3)} | {_fmt(row['ic60'], '', 3)} | "
-                f"{_fmt(row['spread20'], '%')} | {_fmt(row['spread60'], '%')} | "
-                f"{_fmt(row['win_top20'], '%', 1, signed=False)}（n={row['n_top']}） |"
+                f"{fmt(row['ic20'])} | {fmt(row['ic60'])} | "
+                f"{fmt(row['spread20'], digits=2, suffix='%')} | {fmt(row['spread60'], digits=2, suffix='%')} | "
+                f"{fmt(row['win_top20'], digits=1, suffix='%', signed=False)}（n={row['n_top']}） |"
             )
 
     lines += [
@@ -995,9 +989,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     for row in report["factors"]:
         lines.append(
             f"| {row['label']} | {row['weight']} | {row['n_positive']} | "
-            f"{_fmt(row['return_positive'], '%')} | {row['n_negative']} | "
-            f"{_fmt(row['return_negative'], '%')} | {_fmt(row['edge'], '%')} | "
-            f"{_fmt(row.get('excess_edge'), '%')} | "
+            f"{fmt(row['return_positive'], digits=2, suffix='%')} | {row['n_negative']} | "
+            f"{fmt(row['return_negative'], digits=2, suffix='%')} | {fmt(row['edge'], digits=2, suffix='%')} | "
+            f"{fmt(row.get('excess_edge'), digits=2, suffix='%')} | "
             f"{row['basis']} | {row['verdict']} |"
         )
 
@@ -1031,7 +1025,7 @@ def render_html(report: dict[str, Any]) -> str:
         for horizon in ("5", "20", "60"):
             stat = row["horizons"][horizon]
             cells.append(_cell(stat["mean"], "%"))
-            cells.append(f'<td class="num">{_fmt(stat["win_rate"], "%", 1, signed=False)}</td>')
+            cells.append(f'<td class="num">{fmt(stat["win_rate"], digits=1, suffix="%", signed=False)}</td>')
             cells.append(_cell(stat["mdd_mean"], "%"))
         rows.append("<tr>" + "".join(cells) + "</tr>")
 
@@ -1040,9 +1034,9 @@ def render_html(report: dict[str, Any]) -> str:
         ic = report["ic"][horizon]
         spread = report["spread"][horizon]
         ic_items.append(
-            f'<li><b>未来 {horizon} 日：</b>IC {_fmt(ic["ic"], "", 3)}'
+            f'<li><b>未来 {horizon} 日：</b>IC {fmt(ic["ic"])}'
             f'（有效样本 ≈ {ic["n_effective"]}，{"显著" if ic["significant"] else "不显著"}），'
-            f'最高桶 − 最低桶 {_fmt(spread["top_minus_bottom"], "%")}，'
+            f'最高桶 − 最低桶 {fmt(spread["top_minus_bottom"], digits=2, suffix="%")}，'
             f'单调 {spread["monotone_pairs"]}</li>'
         )
 
@@ -1069,7 +1063,7 @@ def render_html(report: dict[str, Any]) -> str:
         for horizon in ("5", "20", "60"):
             low = report["quantiles"][0]["horizons"][horizon]["mean"]
             high = report["quantiles"][-1]["horizons"][horizon]["mean"]
-            gaps.append(f"未来 {horizon} 日 {_fmt(high - low, '%')}")
+            gaps.append(f"未来 {horizon} 日 {fmt(high - low, digits=2, suffix='%')}")
         quintile_item = (
             f'<li><b>五等分交叉验证：</b>Q1（最低分）至 Q5（最高分）的收益差为 {"，".join(gaps)}</li>'
         )
@@ -1087,16 +1081,16 @@ def render_html(report: dict[str, Any]) -> str:
             for horizon in ("5", "20", "60"):
                 stat = row["horizons"][horizon]
                 cells.append(_cell(stat["mean"], "%"))
-                cells.append(f'<td class="num">{_fmt(stat["win_rate"], "%", 1, signed=False)}</td>')
+                cells.append(f'<td class="num">{fmt(stat["win_rate"], digits=1, suffix="%", signed=False)}</td>')
             ex_rows.append("<tr>" + "".join(cells) + "</tr>")
         ex_notes = []
         for horizon in ("5", "20", "60"):
             ic = excess["ic"][horizon]
             spread = excess["spread"][horizon]
             ex_notes.append(
-                f'<li><b>未来 {horizon} 日超额：</b>IC {_fmt(ic["ic"], "", 3)}'
+                f'<li><b>未来 {horizon} 日超额：</b>IC {fmt(ic["ic"])}'
                 f'（t={ic["t"]}，{"显著" if ic["significant"] else "不显著"}），'
-                f'最高桶 − 最低桶 {_fmt(spread["top_minus_bottom"], "%")}，'
+                f'最高桶 − 最低桶 {fmt(spread["top_minus_bottom"], digits=2, suffix="%")}，'
                 f'单调 {spread["monotone_pairs"]}</li>'
             )
         excess_html = f"""<div class="wf-factor">
@@ -1137,9 +1131,9 @@ def render_html(report: dict[str, Any]) -> str:
             else:
                 cells = [
                     f"<td>{horizon} 日</td>",
-                    f'<td class="num">{_fmt(stat["ic"], "", 3)}</td>',
+                    f'<td class="num">{fmt(stat["ic"])}</td>',
                     f'<td class="num">{stat["t"]}</td>',
-                    f'<td class="num">{_fmt(stat["positive_rate"], "%", 1, signed=False)}'
+                    f'<td class="num">{fmt(stat["positive_rate"], digits=1, suffix="%", signed=False)}'
                     f'<span class="wf-code">{stat["n_dates"]} 天</span></td>',
                 ]
             cross_rows.append("<tr>" + "".join(cells) + "</tr>")
@@ -1166,7 +1160,7 @@ def render_html(report: dict[str, Any]) -> str:
             f'{_cell(row["ic60"], "", invert=True)}'
             f'{_cell(row["spread20"], "%")}'
             f'{_cell(row["spread60"], "%")}'
-            f'<td class="num">{_fmt(row["win_top20"], "%", 1, signed=False)}'
+            f'<td class="num">{fmt(row["win_top20"], digits=1, suffix="%", signed=False)}'
             f'<span class="wf-code">n={row["n_top"]}</span></td>'
             "</tr>"
         )

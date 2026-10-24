@@ -42,6 +42,7 @@ from walkforward import (
     load_history,
     load_universe,
 )
+from reporting import fmt
 
 # --------------------------------------------------------------------------- #
 # 口径常量：报告里逐项展示，改这里就等于改口径
@@ -987,13 +988,6 @@ def run(
 # --------------------------------------------------------------------------- #
 
 
-def _fmt(value: float | None, suffix: str = "%", digits: int = 2, signed: bool = True) -> str:
-    if value is None:
-        return ELLIPSIS
-    template = f"{{:+.{digits}f}}" if signed else f"{{:.{digits}f}}"
-    return template.format(value) + suffix
-
-
 def _svg_nav(report: dict[str, Any], *, width: int = 900, height: int = 340) -> str:
     """三线净值图（纯 SVG，无第三方依赖）。"""
     series = [
@@ -1079,14 +1073,14 @@ def _row_cells(report: dict[str, Any], key: str) -> str:
     excess = round(stat["total_return"] - bench, 2)
     tone = "wf-up" if excess > 0 else "wf-down" if excess < 0 else ""
     return (
-        f'<td class="num">{_fmt(stat["total_return"])}</td>'
-        f'<td class="num">{_fmt(stat["annual_return"])}</td>'
-        f'<td class="num">{_fmt(stat["max_drawdown"])}</td>'
-        f'<td class="num">{_fmt(stat["volatility"], "%", 2, signed=False)}</td>'
+        f'<td class="num">{fmt(stat["total_return"], digits=2, suffix="%")}</td>'
+        f'<td class="num">{fmt(stat["annual_return"], digits=2, suffix="%")}</td>'
+        f'<td class="num">{fmt(stat["max_drawdown"], digits=2, suffix="%")}</td>'
+        f'<td class="num">{fmt(stat["volatility"], digits=2, suffix="%", signed=False)}</td>'
         f'<td class="num">{stat["sharpe"] if stat["sharpe"] is not None else ELLIPSIS}</td>'
-        f'<td class="num">{_fmt(stat["annual_turnover"], "%", 0, signed=False)}</td>'
+        f'<td class="num">{fmt(stat["annual_turnover"], digits=0, suffix="%", signed=False)}</td>'
         f'<td class="num">{stat["cost_drag_bps"]:.0f}</td>'
-        f'<td class="num {tone}">{_fmt(excess)}</td>'
+        f'<td class="num {tone}">{fmt(excess, digits=2, suffix="%")}</td>'
     )
 
 
@@ -1110,9 +1104,9 @@ def render_html(report: dict[str, Any]) -> str:
                 "<tr>"
                 f'<td>{family["family"]}</td>'
                 f'<td>{row["label"]}<span class="wf-code">{row["key"]}</span></td>'
-                f'<td class="num">{_fmt(row["ic"], "", 4)}</td>'
+                f'<td class="num">{fmt(row["ic"], digits=4)}</td>'
                 f'<td class="num">{row["t"] if row["t"] is not None else ELLIPSIS}</td>'
-                f'<td class="num">{_fmt(row["positive_rate"], "%", 1, signed=False)}</td>'
+                f'<td class="num">{fmt(row["positive_rate"], digits=1, suffix="%", signed=False)}</td>'
                 f'<td class="wf-verdict">{mark} {row["note"]}</td>'
                 "</tr>"
             )
@@ -1123,8 +1117,8 @@ def render_html(report: dict[str, Any]) -> str:
             "<tr>"
             f'<td>{FEATURE_LABELS[key]}<span class="wf-code">{key}</span></td>'
             f'<td class="num">{value:+.4f}</td>'
-            f'<td class="num">{_fmt(report["ic"]["train"][key]["ic"], "", 4)}</td>'
-            f'<td class="num">{_fmt(report["ic"]["valid"][key]["ic"], "", 4)}</td>'
+            f'<td class="num">{fmt(report["ic"]["train"][key]["ic"], digits=4)}</td>'
+            f'<td class="num">{fmt(report["ic"]["valid"][key]["ic"], digits=4)}</td>'
             "</tr>"
         )
 
@@ -1135,8 +1129,8 @@ def render_html(report: dict[str, Any]) -> str:
             "<tr>"
             f'<td>{row["group"]}</td>'
             f'<td class="num">{row["n"]}</td>'
-            f'<td class="num">{_fmt(row["mean"])}</td>'
-            f'<td class="num">{_fmt(row["win_rate"], "%", 1, signed=False)}</td>'
+            f'<td class="num">{fmt(row["mean"], digits=2, suffix="%")}</td>'
+            f'<td class="num">{fmt(row["win_rate"], digits=1, suffix="%", signed=False)}</td>'
             "</tr>"
         )
     spread = round(values[-1] - values[0], 2) if len(values) >= 2 else None
@@ -1146,10 +1140,10 @@ def render_html(report: dict[str, Any]) -> str:
         sensitivity_rows.append(
             "<tr>"
             f'<td class="num">{row["rebalance"]} 日</td>'
-            f'<td class="num">{_fmt(row["strategy_total"])}</td>'
-            f'<td class="num">{_fmt(row["benchmark_total"])}</td>'
-            f'<td class="num {("wf-up" if row["excess"] > 0 else "wf-down")}">{_fmt(row["excess"])}</td>'
-            f'<td class="num">{_fmt(row["annual_turnover"], "%", 0, signed=False)}</td>'
+            f'<td class="num">{fmt(row["strategy_total"], digits=2, suffix="%")}</td>'
+            f'<td class="num">{fmt(row["benchmark_total"], digits=2, suffix="%")}</td>'
+            f'<td class="num {("wf-up" if row["excess"] > 0 else "wf-down")}">{fmt(row["excess"], digits=2, suffix="%")}</td>'
+            f'<td class="num">{fmt(row["annual_turnover"], digits=0, suffix="%", signed=False)}</td>'
             f'<td class="num">{row["cost_drag_bps"]:.0f}</td>'
             "</tr>"
         )
@@ -1160,9 +1154,9 @@ def render_html(report: dict[str, Any]) -> str:
         period_rows.append(
             "<tr>"
             f'<td>{row["start"]} → {row["end"]}</td>'
-            f'<td class="num {("wf-up" if row["strategy"] > 0 else "wf-down")}">{_fmt(row["strategy"])}</td>'
-            f'<td class="num {("wf-up" if row["benchmark"] > 0 else "wf-down")}">{_fmt(row["benchmark"])}</td>'
-            f'<td class="num {tone}">{_fmt(row["excess"])}</td>'
+            f'<td class="num {("wf-up" if row["strategy"] > 0 else "wf-down")}">{fmt(row["strategy"], digits=2, suffix="%")}</td>'
+            f'<td class="num {("wf-up" if row["benchmark"] > 0 else "wf-down")}">{fmt(row["benchmark"], digits=2, suffix="%")}</td>'
+            f'<td class="num {tone}">{fmt(row["excess"], digits=2, suffix="%")}</td>'
             "</tr>"
         )
 
@@ -1171,9 +1165,9 @@ def render_html(report: dict[str, Any]) -> str:
         cap_rows.append(
             "<tr>"
             f'<td class="num">{int(row["cap"] * 100)}%</td>'
-            f'<td class="num">{_fmt(row["strategy_total"])}</td>'
-            f'<td class="num {("wf-up" if row["excess"] > 0 else "wf-down")}">{_fmt(row["excess"])}</td>'
-            f'<td class="num">{_fmt(row["annual_turnover"], "%", 0, signed=False)}</td>'
+            f'<td class="num">{fmt(row["strategy_total"], digits=2, suffix="%")}</td>'
+            f'<td class="num {("wf-up" if row["excess"] > 0 else "wf-down")}">{fmt(row["excess"], digits=2, suffix="%")}</td>'
+            f'<td class="num">{fmt(row["annual_turnover"], digits=0, suffix="%", signed=False)}</td>'
             f'<td class="num">{row["cost_drag_bps"]:.0f}</td>'
             "</tr>"
         )
@@ -1183,10 +1177,10 @@ def render_html(report: dict[str, Any]) -> str:
         horizon_rows.append(
             "<tr>"
             f'<td class="num">{row["horizon"]} 日</td>'
-            f'<td class="num">{_fmt(row["strategy"])}</td>'
-            f'<td class="num">{_fmt(row["benchmark"])}</td>'
-            f'<td class="num {("wf-up" if row["excess"] > 0 else "wf-down")}">{_fmt(row["excess"])}</td>'
-            f'<td class="num">{_fmt(row["annual_turnover"], "%", 0, signed=False)}</td>'
+            f'<td class="num">{fmt(row["strategy"], digits=2, suffix="%")}</td>'
+            f'<td class="num">{fmt(row["benchmark"], digits=2, suffix="%")}</td>'
+            f'<td class="num {("wf-up" if row["excess"] > 0 else "wf-down")}">{fmt(row["excess"], digits=2, suffix="%")}</td>'
+            f'<td class="num">{fmt(row["annual_turnover"], digits=0, suffix="%", signed=False)}</td>'
             "</tr>"
         )
 
@@ -1195,14 +1189,14 @@ def render_html(report: dict[str, Any]) -> str:
     )
     if train_lead > 0:
         train_note = (
-            f"训练集小幅领先（{_fmt(stats['train_strategy']['total_return'])} vs "
-            f"{_fmt(stats['train_benchmark']['total_return'])}，{_fmt(train_lead)}），"
+            f"训练集小幅领先（{fmt(stats['train_strategy']['total_return'], digits=2, suffix="%")} vs "
+            f"{fmt(stats['train_benchmark']['total_return'], digits=2, suffix="%")}，{fmt(train_lead, digits=2, suffix="%")}），"
             "验证集优势反转，属于样本外失效而非参数没调好"
         )
     else:
         train_note = (
-            f"训练集已经跑输（{_fmt(stats['train_strategy']['total_return'])} vs "
-            f"{_fmt(stats['train_benchmark']['total_return'])}），"
+            f"训练集已经跑输（{fmt(stats['train_strategy']['total_return'], digits=2, suffix="%")} vs "
+            f"{fmt(stats['train_benchmark']['total_return'], digits=2, suffix="%")}），"
             "样本内外方向一致，说明因子本身缺少可迁移的 edge"
         )
 
@@ -1254,9 +1248,9 @@ def render_html(report: dict[str, Any]) -> str:
       </table>
     </div>
     <p class="wf-warn">结论：验证集新模型{verdict}等权基准，
-      总收益 {_fmt(strategy['total_return'])} vs {_fmt(bench['total_return'])}（差 {_fmt(excess)}），
-      年化差 {_fmt(annual_excess)}；旧规则 v3 同期 {_fmt(legacy['total_return'])}。
-      最大回撤 {_fmt(strategy['max_drawdown'])} vs {_fmt(bench['max_drawdown'])}。
+      总收益 {fmt(strategy['total_return'], digits=2, suffix="%")} vs {fmt(bench['total_return'], digits=2, suffix="%")}（差 {fmt(excess, digits=2, suffix="%")}），
+      年化差 {fmt(annual_excess, digits=2, suffix="%")}；旧规则 v3 同期 {fmt(legacy['total_return'], digits=2, suffix="%")}。
+      最大回撤 {fmt(strategy['max_drawdown'], digits=2, suffix="%")} vs {fmt(bench['max_drawdown'], digits=2, suffix="%")}。
       {train_note}；两套评分同时跑输，说明问题在因子本身。
       在净值曲线确认之前，不建议把这套模型接到前端评分。</p>  </div>
 
@@ -1298,7 +1292,7 @@ def render_html(report: dict[str, Any]) -> str:
     </div>
     <ul class="wf-notes">
       <li>训练集 {stats['train_strategy']['total_return']:+.2f}% vs 等权 {stats['train_benchmark']['total_return']:+.2f}%</li>
-      <li>验证集五分组平均收益首尾差 {_fmt(spread)}，Q1→Q5 {_fmt(values[0] if values else None)} → {_fmt(values[-1] if values else None)}</li>
+      <li>验证集五分组平均收益首尾差 {fmt(spread, digits=2, suffix="%")}，Q1→Q5 {fmt(values[0] if values else None, digits=2, suffix="%")} → {fmt(values[-1] if values else None, digits=2, suffix="%")}</li>
     </ul>
   </div>
 
@@ -1409,21 +1403,21 @@ def render_markdown(report: dict[str, Any]) -> str:
         "",
         "## 1. 结论（先看净值）",
         "",
-        f"- 验证集新模型总收益 **{_fmt(strategy['total_return'])}**，等权基准 "
-        f"**{_fmt(bench['total_return'])}**，差 **{_fmt(excess)}** → {'跑赢' if excess > 0 else '跑输'}。",
-        f"- 年化：策略 {_fmt(strategy['annual_return'])} vs 基准 {_fmt(bench['annual_return'])}；"
-        f"最大回撤 {_fmt(strategy['max_drawdown'])} vs {_fmt(bench['max_drawdown'])}。",
-        f"- 成本前策略 {_fmt(stats['strategy_gross']['total_return'])}，"
+        f"- 验证集新模型总收益 **{fmt(strategy['total_return'], digits=2, suffix="%")}**，等权基准 "
+        f"**{fmt(bench['total_return'], digits=2, suffix="%")}**，差 **{fmt(excess, digits=2, suffix="%")}** → {'跑赢' if excess > 0 else '跑输'}。",
+        f"- 年化：策略 {fmt(strategy['annual_return'], digits=2, suffix="%")} vs 基准 {fmt(bench['annual_return'], digits=2, suffix="%")}；"
+        f"最大回撤 {fmt(strategy['max_drawdown'], digits=2, suffix="%")} vs {fmt(bench['max_drawdown'], digits=2, suffix="%")}。",
+        f"- 成本前策略 {fmt(stats['strategy_gross']['total_return'], digits=2, suffix="%")}，"
         f"说明{'亏损主要来自信号本身，不只是交易摩擦' if stats['strategy_gross']['total_return'] < bench['total_return'] else '扣掉成本才转为跑输'}。",
         f"- 逐窗口（{len(report['periods'])} 段）超额为正的比例 {report['excess_win_rate']}%，"
-        f"最差两段：{worst[0]['start']}→{worst[0]['end']}（{_fmt(worst[0]['excess'])}）、"
-        f"{worst[1]['start']}→{worst[1]['end']}（{_fmt(worst[1]['excess'])}）。"
+        f"最差两段：{worst[0]['start']}→{worst[0]['end']}（{fmt(worst[0]['excess'], digits=2, suffix="%")}）、"
+        f"{worst[1]['start']}→{worst[1]['end']}（{fmt(worst[1]['excess'], digits=2, suffix="%")}）。"
         if len(worst) >= 2
         else f"- 逐窗口超额为正的比例 {report['excess_win_rate']}%。",
-        f"- 旧规则 v3 同成本同约束：{_fmt(legacy['total_return'])}（年化 {_fmt(legacy['annual_return'])}，"
-        f"回撤 {_fmt(legacy['max_drawdown'])}）。",
+        f"- 旧规则 v3 同成本同约束：{fmt(legacy['total_return'], digits=2, suffix="%")}（年化 {fmt(legacy['annual_return'], digits=2, suffix="%")}，"
+        f"回撤 {fmt(legacy['max_drawdown'], digits=2, suffix="%")}）。",
         f"- 成本：单边买 {params['cost_buy_bps']}bp / 卖 {params['cost_sell_bps']}bp，"
-        f"年换手 {_fmt(strategy['annual_turnover'], '%', 0, signed=False)}，"
+        f"年换手 {fmt(strategy['annual_turnover'], digits=0, suffix='%', signed=False)}，"
         f"成本拖累 {strategy['cost_drag_bps']:.0f}bp/年，"
         f"换手上限触发率 {strategy['capped_ratio']:.0f}%。",
         "",
@@ -1434,18 +1428,18 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for label, stat in (("新模型", strategy), ("新模型（成本前）", stats["strategy_gross"]), ("等权基准", bench), ("旧规则 v3", legacy)):
         lines.append(
-            f"| {label} | {_fmt(stat['total_return'])} | {_fmt(stat['annual_return'])} | "
-            f"{_fmt(stat['max_drawdown'])} | {_fmt(stat['volatility'], '%', 2, signed=False)} | "
+            f"| {label} | {fmt(stat['total_return'], digits=2, suffix="%")} | {fmt(stat['annual_return'], digits=2, suffix="%")} | "
+            f"{fmt(stat['max_drawdown'], digits=2, suffix="%")} | {fmt(stat['volatility'], digits=2, suffix='%', signed=False)} | "
             f"{stat['sharpe'] if stat['sharpe'] is not None else ELLIPSIS} | "
-            f"{_fmt(stat['annual_turnover'], '%', 0, signed=False)} | "
+            f"{fmt(stat['annual_turnover'], digits=0, suffix='%', signed=False)} | "
             f"{stat['cost_drag_bps']:.0f} | "
-            f"{_fmt(round(stat['total_return'] - bench['total_return'], 2))} |"
+            f"{fmt(round(stat['total_return'] - bench['total_return'], 2), digits=2, suffix="%")} |"
         )
 
     lines += [
         "",
-        f"训练期同口径：策略 {_fmt(stats['train_strategy']['total_return'])} vs "
-        f"等权 {_fmt(stats['train_benchmark']['total_return'])}。",
+        f"训练期同口径：策略 {fmt(stats['train_strategy']['total_return'], digits=2, suffix="%")} vs "
+        f"等权 {fmt(stats['train_benchmark']['total_return'], digits=2, suffix="%")}。",
         "",
         "## 3. 切分方式",
         "",
@@ -1469,9 +1463,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     for family in report["screening"]["families"]:
         for row in family["candidates"]:
             lines.append(
-                f"| {family['family']} | {row['label']} | {_fmt(row['ic'], '', 4)} | "
+                f"| {family['family']} | {row['label']} | {fmt(row['ic'], digits=4)} | "
                 f"{row['t'] if row['t'] is not None else ELLIPSIS} | "
-                f"{_fmt(row['positive_rate'], '%', 1, signed=False)} | "
+                f"{fmt(row['positive_rate'], digits=1, suffix='%', signed=False)} | "
                 f"{'● ' if row['selected'] else ''}{row['note']} |"
             )
 
@@ -1485,8 +1479,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     for key, value in report["model"]["coefficients"].items():
         lines.append(
             f"| {FEATURE_LABELS[key]}（{key}） | {value:+.4f} | "
-            f"{_fmt(report['ic']['train'][key]['ic'], '', 4)} | "
-            f"{_fmt(report['ic']['valid'][key]['ic'], '', 4)} |"
+            f"{fmt(report['ic']['train'][key]['ic'], digits=4)} | "
+            f"{fmt(report['ic']['valid'][key]['ic'], digits=4)} |"
         )
 
     lines += ["", f"截距 {report['model']['intercept']:.4f}，训练样本 {report['model']['n_train']} 条。", ""]
@@ -1494,8 +1488,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     lines += ["## 7. 五分组（验证集）", "", "| 分组 | 样本 | 均值 | 胜率 |", "| --- | ---: | ---: | ---: |"]
     for row in report["quintiles_valid"]:
         lines.append(
-            f"| {row['group']} | {row['n']} | {_fmt(row['mean'])} | "
-            f"{_fmt(row['win_rate'], '%', 1, signed=False)} |"
+            f"| {row['group']} | {row['n']} | {fmt(row['mean'], digits=2, suffix="%")} | "
+            f"{fmt(row['win_rate'], digits=1, suffix='%', signed=False)} |"
         )
 
     lines += [
@@ -1507,9 +1501,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["cost_sensitivity"]:
         lines.append(
-            f"| {row['rebalance']} 日 | {_fmt(row['strategy_total'])} | "
-            f"{_fmt(row['benchmark_total'])} | {_fmt(row['excess'])} | "
-            f"{_fmt(row['annual_turnover'], '%', 0, signed=False)} | {row['cost_drag_bps']:.0f} |"
+            f"| {row['rebalance']} 日 | {fmt(row['strategy_total'], digits=2, suffix="%")} | "
+            f"{fmt(row['benchmark_total'], digits=2, suffix="%")} | {fmt(row['excess'], digits=2, suffix="%")} | "
+            f"{fmt(row['annual_turnover'], digits=0, suffix='%', signed=False)} | {row['cost_drag_bps']:.0f} |"
         )
 
     lines += [
@@ -1523,9 +1517,9 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["cap_sensitivity"]:
         lines.append(
-            f"| {int(row['cap'] * 100)}% | {_fmt(row['strategy_total'])} | "
-            f"{_fmt(row['excess'])} | {_fmt(row['annual_turnover'], '%', 0, signed=False)} | "
-            f"{row['cost_drag_bps']:.0f} | {_fmt(row['max_drawdown'])} |"
+            f"| {int(row['cap'] * 100)}% | {fmt(row['strategy_total'], digits=2, suffix="%")} | "
+            f"{fmt(row['excess'], digits=2, suffix="%")} | {fmt(row['annual_turnover'], digits=0, suffix='%', signed=False)} | "
+            f"{row['cost_drag_bps']:.0f} | {fmt(row['max_drawdown'], digits=2, suffix="%")} |"
         )
 
     lines += [
@@ -1537,8 +1531,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["periods"]:
         lines.append(
-            f"| {row['start']} → {row['end']} | {_fmt(row['strategy'])} | "
-            f"{_fmt(row['benchmark'])} | {_fmt(row['excess'])} |"
+            f"| {row['start']} → {row['end']} | {fmt(row['strategy'], digits=2, suffix="%")} | "
+            f"{fmt(row['benchmark'], digits=2, suffix="%")} | {fmt(row['excess'], digits=2, suffix="%")} |"
         )
 
     lines += [
@@ -1552,8 +1546,8 @@ def render_markdown(report: dict[str, Any]) -> str:
     ]
     for row in report["horizon_variants"]:
         lines.append(
-            f"| {row['horizon']} 日 | {_fmt(row['strategy'])} | {_fmt(row['benchmark'])} | "
-            f"{_fmt(row['excess'])} | {_fmt(row['annual_turnover'], '%', 0, signed=False)} |"
+            f"| {row['horizon']} 日 | {fmt(row['strategy'], digits=2, suffix="%")} | {fmt(row['benchmark'], digits=2, suffix="%")} | "
+            f"{fmt(row['excess'], digits=2, suffix="%")} | {fmt(row['annual_turnover'], digits=0, suffix='%', signed=False)} |"
         )
 
     lines += [

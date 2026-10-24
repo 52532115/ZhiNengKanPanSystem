@@ -42,6 +42,7 @@ import protocol as pr
 from xsec import _rank_pct
 
 from research import universe
+from reporting import fmt, inline
 
 ROOT = Path(__file__).resolve().parent
 STOCK_CACHE = ROOT / ".cache" / "fields" / "stocks"
@@ -647,16 +648,6 @@ def compare_models(
 # --------------------------------------------------------------------------- #
 
 
-def fmt(value: Any, digits: int = 3, signed: bool = True) -> str:
-    if value is None:
-        return "—"
-    if isinstance(value, (int, float)):
-        if not signed:
-            return f"{value:.{digits}f}"
-        return f"{value:+.{digits}f}"
-    return str(value)
-
-
 def share(value: Any) -> str:
     return "—" if value is None else f"{float(value) * 100:.0f}%"
 
@@ -677,7 +668,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("| 族 | 族综合增量 IC | t | 半年同号 | 与现有因子最大相关 | 年换手 | 判定 |")
     add("|---|---|---|---|---|---|---|")
     for family, data in families.items():
-        add(f"| {data['label']} | {fmt(data['residual']['mean'])} | {fmt(data['residual']['t'], 2)} | "
+        add(f"| {data['label']} | {fmt(data['residual']['mean'])} | {fmt(data['residual']['t'], digits=2)} | "
             f"{share(data['half_sign_share'])} | {data['corr_existing_max']:.2f} | "
             f"{data['turnover']:.1f}× | {'通过' if data['pass'] else '未通过'} |")
     add("")
@@ -701,7 +692,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         add(f"| {spec['label']} | {fa.FAMILY_SPECS[spec['family']]['label']} | {spec['formula']} | "
             f"{'+' if spec['prior'] > 0 else '−'} | {agrees} | {fmt(item['raw']['mean'])} | "
             f"{fmt(item['neutral']['mean'])} | {fmt(value)} | "
-            f"{fmt(item['residual']['t'], 2)} | {item['turnover']:.1f}× |")
+            f"{fmt(item['residual']['t'], digits=2)} | {item['turnover']:.1f}× |")
     add("")
     add("原始 IC：因子分位 vs 未来 20 日收益分位；中性化 IC：再剥离行业、规模（自由流通市值）、"
         "beta；增量 IC：再对现有三因子（MACD 柱、量比、RS20）取残差。t 用块自助标准误。\n")
@@ -735,10 +726,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         verdict = "全部通过" if not failed else "未过：" + "、".join(failed)
         spread = data.get("spread") or {}
         add(f"| {data['label']} | {members} | {ics} | {fmt(data['residual']['mean'])} | "
-            f"{fmt(data['residual']['t'], 2)} | [{fmt(data['residual']['ci_low'])}, "
+            f"{fmt(data['residual']['t'], digits=2)} | [{fmt(data['residual']['ci_low'])}, "
             f"{fmt(data['residual']['ci_high'])}] | {data['turnover']:.1f}× | "
-            f"{fmt(spread.get('gross'), 2)}% | {fmt(spread.get('cost'), 2)}pp | "
-            f"{fmt(spread.get('net'), 2)}% | {verdict} |")
+            f"{fmt(spread.get('gross'), digits=2)}% | {fmt(spread.get('cost'), digits=2)}pp | "
+            f"{fmt(spread.get('net'), digits=2)}% | {verdict} |")
     add("")
     add("族综合分先把成员按先验符号对齐（负向因子取 1−分位），再等权平均——"
         "这是「多表达平均」的落地方式，与「挑训练集 IC 最高的表达」完全不同。\n")
@@ -753,7 +744,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("|---|---|---|---|---|")
     for key in ranked[:5]:
         item = factors[key]
-        add(f"| {item['label']} | {fmt(item['residual']['mean'])} | {fmt(item['residual']['t'], 2)} | "
+        add(f"| {item['label']} | {fmt(item['residual']['mean'])} | {fmt(item['residual']['t'], digits=2)} | "
             f"{share(item['half_sign_share'])} | {fa.FACTOR_SPECS[key]['note']} |")
     add("")
     add("这里故意只做诊断、不据此建模。52 周高点距离（增量 IC +0.030、t 2.76）单看已经够格，"
@@ -763,13 +754,13 @@ def render_markdown(report: dict[str, Any]) -> str:
     reversal = families["reversal"]
     momentum = families["momentum"]
     add(f"5 日反转是这个样本里最典型的「毛收益好看、扣费后消失」：族毛年化 "
-        f"{fmt((reversal.get('spread') or {}).get('gross'), 2)}%，年换手 {reversal['turnover']:.1f} 倍，"
-        f"按单边换手折算成本 {fmt((reversal.get('spread') or {}).get('cost'), 2)}pp，净 "
-        f"{fmt((reversal.get('spread') or {}).get('net'), 2)}%。A 股短期反转确实存在，但在这份"
+        f"{fmt((reversal.get('spread') or {}).get('gross'), digits=2)}%，年换手 {reversal['turnover']:.1f} 倍，"
+        f"按单边换手折算成本 {fmt((reversal.get('spread') or {}).get('cost'), digits=2)}pp，净 "
+        f"{fmt((reversal.get('spread') or {}).get('net'), digits=2)}%。A 股短期反转确实存在，但在这份"
         "样本与这个成本口径下打不过换手。\n")
-    add(f"动量族则是另一种情况：毛年化 {fmt((momentum.get('spread') or {}).get('gross'), 2)}%、净 "
-        f"{fmt((momentum.get('spread') or {}).get('net'), 2)}% 看起来能用，但增量 IC 的 t 只有 "
-        f"{fmt(momentum['residual']['t'], 2)}——点估计靠少数时段贡献，不能当稳定 edge。"
+    add(f"动量族则是另一种情况：毛年化 {fmt((momentum.get('spread') or {}).get('gross'), digits=2)}%、净 "
+        f"{fmt((momentum.get('spread') or {}).get('net'), digits=2)}% 看起来能用，但增量 IC 的 t 只有 "
+        f"{fmt(momentum['residual']['t'], digits=2)}——点估计靠少数时段贡献，不能当稳定 edge。"
         "这也说明「毛收益正」和「统计上可区分」是两件事。\n")
 
     add("## 4. 组合模型\n")
@@ -777,16 +768,16 @@ def render_markdown(report: dict[str, Any]) -> str:
     add("|---|---|---|---|---|---|")
     add(f"| 基准 | 现有三因子 | {fmt(model['baseline']['mean'])} | "
         f"[{fmt(model['baseline']['ci_low'])}, {fmt(model['baseline']['ci_high'])}] | "
-        f"{fmt(model['baseline']['t'], 2)} | {share((model['baseline'].get('positive_rate') or 0) / 100)} |")
+        f"{fmt(model['baseline']['t'], digits=2)} | {share((model['baseline'].get('positive_rate') or 0) / 100)} |")
     if model.get("extended"):
         add(f"| 扩展 | 三因子 + {len(model['chosen_families'])} 族 | {fmt(model['extended']['mean'])} | "
             f"[{fmt(model['extended']['ci_low'])}, {fmt(model['extended']['ci_high'])}] | "
-            f"{fmt(model['extended']['t'], 2)} | {share((model['extended'].get('positive_rate') or 0) / 100)} |")
+            f"{fmt(model['extended']['t'], digits=2)} | {share((model['extended'].get('positive_rate') or 0) / 100)} |")
     add("")
     if model.get("paired"):
         paired = model["paired"]
         add(f"逐日配对差（扩展 − 基准）：{fmt(paired['mean'])} "
-            f"[{fmt(paired['ci_low'])}, {fmt(paired['ci_high'])}]，t = {fmt(paired['t'], 2)}。"
+            f"[{fmt(paired['ci_low'])}, {fmt(paired['ci_high'])}]，t = {fmt(paired['t'], digits=2)}。"
             "配对差比「两个均值各自波动」更接近真实增量。\n")
 
     add("## 5. 口径与限制\n")
@@ -801,17 +792,6 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _inline(text: str) -> str:
-    out = text
-    while "**" in out:
-        first = out.index("**")
-        second = out.find("**", first + 2)
-        if second < 0:
-            break
-        out = f"{out[:first]}<strong>{out[first + 2:second]}</strong>{out[second + 2:]}"
-    return out
-
-
 def render_html(markdown: str) -> str:
     body: list[str] = []
     in_table = False
@@ -824,9 +804,9 @@ def render_html(markdown: str) -> str:
             if not in_table:
                 body.append("<table>")
                 in_table = True
-                body.append("<tr>" + "".join(f"<th>{_inline(cell)}</th>" for cell in cells) + "</tr>")
+                body.append("<tr>" + "".join(f"<th>{inline(cell)}</th>" for cell in cells) + "</tr>")
             else:
-                body.append("<tr>" + "".join(f"<td>{_inline(cell)}</td>" for cell in cells) + "</tr>")
+                body.append("<tr>" + "".join(f"<td>{inline(cell)}</td>" for cell in cells) + "</tr>")
             continue
         if in_table:
             body.append("</table>")
