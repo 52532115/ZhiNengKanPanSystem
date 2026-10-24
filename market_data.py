@@ -196,7 +196,9 @@ class MarketDataClient:
 
     def history(self, symbol: str, limit: int = 300, *, index: bool = False) -> dict[str, Any]:
         symbol = normalize_symbol(symbol)
-        limit = max(80, min(limit, 600))
+        # 上限 3000 根（约 12 年）：600 根只够 2.4 年，装不下 2 年 lockbox +
+        # 5 折 purged walk-forward + 12-1 动量预热，研究链路会样本不足。
+        limit = max(80, min(limit, 3000))
         if index and symbol not in BENCHMARKS:
             raise ValueError("不支持的市场指数代码")
         secid = BENCHMARKS[symbol][0] if index else security_id(symbol)
