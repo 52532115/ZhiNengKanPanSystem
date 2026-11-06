@@ -22,6 +22,10 @@ const state = {
   current: null,
   chart: null,
   rs: null,
+  intraday: null,
+  intradayError: "",
+  intradayTimer: null,
+  intradayRequestId: 0,
   batch: null,
   allocation: null,
   watchlist: loadWatchlist(),
@@ -346,6 +350,8 @@ function renderAnalysis(data) {
   $("#dashboard").classList.remove("hidden");
   initChart(data.chart);
   refreshRS(data.symbol);
+  // 分时与主分析互不阻塞：分时失败只在它自己的卡片里报错，不影响三字段结果。
+  refreshIntraday(data.symbol);
   updateWatchButton();
   if (state.watchlist.some((entry) => entry.symbol === data.symbol)) refreshWatchlist();
 }
@@ -756,6 +762,335 @@ function drawChart() {
   canvas.ondblclick = () => resetChartRange();
 
   render();
+}
+
+/* --------------------------------- 当日分时 --------------------------------- */
+/*
+ * x 轴固定 241 个槽位（09:30–11:30 共 121 个、13:01–15:00 共 120 个），盘中只填左边的
+ * 槽位、右半边留白——上午 10 点看图时价格线不会被横向拉满。分时只展示当日成交过程，
+ * 不参与任何字段计算，也不产生买卖信号。
+ */
+
+const INTRADAY_SLOTS = 241;
+
+function intradaySlot(clock) {
+  const parts = String(clock || "").split(":");
+  const hour = Number(parts[0]);
+  const minute = Number(parts[1]);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  const stamp = hour * 60 + minute;
+  if (stamp <= 690) return Math.max(0, Math.min(120, stamp - 570));
+  return Math.max(121, Math.min(240, 121 + (stamp - 781)));
+}
+
+function todayStamp() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+function drawIntradayChart() {
+  const canvas = $("#intradayChart");
+  const shell = canvas?.parentElement;
+  if (!canvas || !shell) return;
+  const width = shell.clientWidth;
+  const height = shell.clientHeight;
+  if (!width || !height) return;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const tooltip = $("#intradayTooltip");
+  const data = state.intraday;
+  const rows = data?.rows || [];
+  if (!rows.length) {
+    if (tooltip) tooltip.classList.add("hidden");
+    ctx.fillStyle = "#9aa39d";
+    ctx.font = '12px "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.textAlign = "center";
+    ctx.fillText(state.intradayError || "暂无当日分时数据", width / 2, height / 2);
+    ctx.textAlign = "left";
+    canvas.onmousemove = null;
+    canvas.onmouseleave = null;
+    return;
+  }
+
+  const pad = { left: 56, right: 54, top: 12, bottom: 20 };
+  const innerH = height - pad.top - pad.bottom;
+  const subH = Math.max(48, Math.round(innerH * 0.24));
+  const gap = 24;
+  const priceTop = pad.top;
+  const priceBottom = pad.top + innerH - subH - gap;
+  const subTop = priceBottom + gap;
+  const subBottom = height - pad.bottom;
+  const plotW = width - pad.left - pad.right;
+  const step = plotW / (INTRADAY_SLOTS - 1);
+  const slotX = (slot) => pad.left + step * slot;
+  const precision = data.price_precision ?? 2;
+  const fmt = (value) => (value === null || value === undefined ? "—" : Number(value).toFixed(precision));
+  const pre = Number(data.previous_close) || 0;
+  const pctOf = (value) => (pre ? (value / pre - 1) * 100 : null);
+  const marks = rows
+    .map((row) => ({ slot: intradaySlot(row.time), row }))
+    .filter((mark) => mark.slot !== null);
+  if (!marks.length) return;
+
+  const values = [pre];
+  marks.forEach((mark) => values.push(mark.row.price, mark.row.avg));
+  const rawLow = Math.min(...values);
+  const rawHigh = Math.max(...values);
+  let low;
+  let high;
+  if (pre > 0) {
+    // 纵轴按「昨收居中」定：上下留同样幅度，0.00% 那条线就落在正中（分时图惯例），
+    // 涨跌幅度对称，不用靠比例尺去猜今天偏强还是偏弱。
+    const half = Math.max(rawHigh - pre, pre - rawLow, Math.abs(pre) * 0.002) * 1.08;
+    low = pre - half;
+    high = pre + half;
+  } else {
+    const span = Math.max(rawHigh - rawLow, Math.abs(rawHigh) * 0.002) || 0.01;
+    low = rawLow - span * 0.1;
+    high = rawHigh + span * 0.1;
+  }
+  const priceRange = high - low || 1;
+  const priceY = (value) => priceTop + ((high - value) / priceRange) * (priceBottom - priceTop);
+  const volumeMax = Math.max(1, ...marks.map((mark) => mark.row.volume || 0));
+  const volumeY = (value) => subBottom - ((value || 0) / (volumeMax * 1.1)) * (subBottom - subTop);
+
+  function grid() {
+    ctx.font = "10px ui-monospace, monospace";
+    for (let i = 0; i < 5; i++) {
+      const value = high - (i * priceRange) / 4;
+      const y = priceY(value);
+      // 中间那条就是昨收：画成虚线基准线，标签一起加深，不再额外叠一行 0.00%。
+      const isBase = pre > 0 && Math.abs(value - pre) <= priceRange * 1e-6;
+      if (isBase) {
+        ctx.save();
+        ctx.strokeStyle = "#b3bcb4";
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = COLORS.grid;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(width - pad.right, y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = isBase ? "#6b776f" : COLORS.axis;
+      ctx.textAlign = "left";
+      ctx.fillText(value.toFixed(precision), 2, y + 3);
+      const pct = pctOf(value);
+      if (pct !== null) {
+        ctx.textAlign = "right";
+        ctx.fillText(`${pct > 0.005 ? "+" : ""}${pct.toFixed(2)}%`, width - 4, y + 3);
+      }
+    }
+    ctx.textAlign = "left";
+  }
+
+  function volumePane() {
+    const barW = Math.max(1, Math.min(6, step * 0.72));
+    marks.forEach((mark, index) => {
+      const previous = index ? marks[index - 1].row.price : pre || mark.row.price;
+      ctx.fillStyle = mark.row.price >= previous ? "rgba(190,73,58,.5)" : "rgba(23,107,77,.5)";
+      const top = volumeY(mark.row.volume);
+      ctx.fillRect(slotX(mark.slot) - barW / 2, top, barW, Math.max(1, subBottom - top));
+    });
+    ctx.strokeStyle = "#cfd5ce";
+    ctx.beginPath();
+    ctx.moveTo(pad.left, subTop - 4);
+    ctx.lineTo(width - pad.right, subTop - 4);
+    ctx.stroke();
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.fillStyle = "#78857e";
+    ctx.fillText("成交量（手）", pad.left, subTop - 13);
+    ctx.fillStyle = COLORS.axis;
+    ctx.fillText(formatVolume(volumeMax), 2, subTop + 6);
+  }
+
+  function series() {
+    const first = marks[0];
+    const last = marks[marks.length - 1];
+    // 面积以昨收线为界：今日上涨填红、下跌填绿，一眼能看出“现在在水上还是水下”。
+    if (pre) {
+      const baseY = priceY(pre);
+      ctx.beginPath();
+      ctx.moveTo(slotX(first.slot), baseY);
+      marks.forEach((mark) => ctx.lineTo(slotX(mark.slot), priceY(mark.row.price)));
+      ctx.lineTo(slotX(last.slot), baseY);
+      ctx.closePath();
+      ctx.fillStyle = last.row.price >= pre ? "rgba(179,73,56,.1)" : "rgba(23,107,77,.1)";
+      ctx.fill();
+    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = COLORS.ink;
+    ctx.lineWidth = 1.5;
+    ctx.lineJoin = "round";
+    marks.forEach((mark, index) => {
+      const x = slotX(mark.slot);
+      const y = priceY(mark.row.price);
+      if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = COLORS.ma20;
+    ctx.lineWidth = 1.2;
+    marks.forEach((mark, index) => {
+      const x = slotX(mark.slot);
+      const y = priceY(mark.row.avg);
+      if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+    ctx.restore();
+    const lastY = priceY(last.row.price);
+    ctx.fillStyle = last.row.price >= pre ? COLORS.up : COLORS.down;
+    ctx.beginPath();
+    ctx.arc(slotX(last.slot), lastY, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function clockAxis() {
+    ctx.fillStyle = COLORS.axis;
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    [[0, "09:30"], [60, "10:30"], [120, "11:30/13:00"], [180, "14:00"], [240, "15:00"]]
+      .forEach(([slot, label]) => ctx.fillText(label, slotX(slot), height - 6));
+    ctx.textAlign = "left";
+  }
+
+  function render(markIndex = null) {
+    ctx.clearRect(0, 0, width, height);
+    grid();
+    volumePane();
+    series();
+    clockAxis();
+    const mark = markIndex === null ? null : marks[markIndex];
+    if (!mark) return;
+    const cx = slotX(mark.slot);
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = "rgba(70,84,76,.45)";
+    ctx.beginPath();
+    ctx.moveTo(cx, priceTop);
+    ctx.lineTo(cx, subBottom);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = COLORS.ink;
+    ctx.beginPath();
+    ctx.arc(cx, priceY(mark.row.price), 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  canvas.onmousemove = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const target = (event.clientX - rect.left - pad.left) / step;
+    let best = 0;
+    let bestGap = Infinity;
+    marks.forEach((mark, index) => {
+      const offset = Math.abs(mark.slot - target);
+      if (offset < bestGap) { bestGap = offset; best = index; }
+    });
+    render(best);
+    if (!tooltip) return;
+    const row = marks[best].row;
+    const pct = pctOf(row.price);
+    const pctText = pct === null ? "—" : `${pct > 0 ? "+" : ""}${pct.toFixed(2)}%`;
+    tooltip.innerHTML = [
+      `${escapeHtml(data.trade_date)} ${escapeHtml(row.time)}`,
+      `价格 ${fmt(row.price)}　${pctText}`,
+      `均价 ${fmt(row.avg)}`,
+      `成交量 ${formatVolume(row.volume)} 手`,
+      `成交额 ${formatVolume(row.amount)}`,
+    ].join("<br>");
+    tooltip.style.left = `${Math.max(90, Math.min(width - 90, slotX(marks[best].slot)))}px`;
+    tooltip.style.top = `${Math.max(96, priceY(row.price))}px`;
+    tooltip.classList.remove("hidden");
+  };
+  canvas.onmouseleave = () => {
+    if (tooltip) tooltip.classList.add("hidden");
+    render();
+  };
+
+  render();
+}
+
+function renderIntraday(data) {
+  const stats = $("#intradayStats");
+  const note = $("#intradayNote");
+  $("#intradayRefresh").classList.remove("loading");
+  $("#intradayDate").textContent = data.trade_date === todayStamp() ? "" : `最近交易日 ${data.trade_date}`;
+  const precision = data.price_precision ?? 2;
+  const pct = data.pct_change;
+  stats.innerHTML = [
+    `<span>现价 <b class="${changeClass(pct)}">${formatNumber(data.price, "", precision)}</b></span>`,
+    `<span>涨跌 <b class="${changeClass(pct)}">${signed(pct, "%")}</b></span>`,
+    `<span>均价 <b>${formatNumber(data.avg, "", precision)}</b></span>`,
+    `<span>最高 <b>${formatNumber(data.high, "", precision)}</b></span>`,
+    `<span>最低 <b>${formatNumber(data.low, "", precision)}</b></span>`,
+    `<span>成交额 <b>${formatVolume(data.amount)}</b></span>`,
+  ].join("");
+  const notes = [
+    data.live
+      ? "盘中实时，每分钟自动刷新"
+      : `数据截至 ${escapeHtml(String(data.as_of).slice(11))}，非交易时段不再更新`,
+  ];
+  if (data.trade_date !== todayStamp()) notes.push(`今天不是交易日，展示的是 ${data.trade_date} 的完整分时`);
+  if (data.data_source === "fallback") notes.push("备用线路（腾讯行情），分钟级高低点不可用");
+  notes.push("分时只展示当日成交过程，不参与三字段计算，也不构成买卖信号");
+  note.classList.remove("error");
+  note.textContent = notes.join(" · ");
+  drawIntradayChart();
+}
+
+async function refreshIntraday(symbol, { manual = false } = {}) {
+  const requestId = ++state.intradayRequestId;
+  clearTimeout(state.intradayTimer);
+  state.intradayTimer = null;
+  const button = $("#intradayRefresh");
+  if (manual) {
+    button.classList.add("loading");
+  } else {
+    // 换标的时立刻清空上一只的分时，避免旧线配着新表头看。
+    state.intraday = null;
+    state.intradayError = "正在读取当日分时…";
+    $("#intradayDate").textContent = "";
+    $("#intradayStats").innerHTML = "";
+    $("#intradayNote").classList.remove("error");
+    $("#intradayNote").textContent = "正在读取当日分时…";
+    drawIntradayChart();
+  }
+  try {
+    const data = await getJSON(`/api/intraday?symbol=${encodeURIComponent(symbol)}`);
+    if (requestId !== state.intradayRequestId || state.current?.symbol !== symbol) return;
+    state.intraday = data;
+    state.intradayError = "";
+    renderIntraday(data);
+    // 只有「最后一笔是刚刚」才继续轮询；收盘后上游不再更新，轮询没有意义。
+    if (data.live) state.intradayTimer = setTimeout(() => refreshIntraday(symbol), 60000);
+  } catch (error) {
+    if (requestId !== state.intradayRequestId) return;
+    state.intraday = null;
+    state.intradayError = `分时读取失败：${error.message}`;
+    button.classList.remove("loading");
+    $("#intradayDate").textContent = "";
+    $("#intradayStats").innerHTML = "";
+    const note = $("#intradayNote");
+    note.classList.add("error");
+    note.textContent = state.intradayError;
+    drawIntradayChart();
+  }
 }
 
 /* --------------------------------- 相对强弱 --------------------------------- */
@@ -1240,6 +1575,10 @@ $("#chartTabs").addEventListener("click", (event) => {
   drawChart();
 });
 $("#chartReset").addEventListener("click", () => resetChartRange());
+$("#intradayRefresh").addEventListener("click", () => {
+  if (!state.current) return;
+  refreshIntraday(state.current.symbol, { manual: true });
+});
 
 let resizeTimer = null;
 window.addEventListener("resize", () => {
@@ -1247,6 +1586,7 @@ window.addEventListener("resize", () => {
   resizeTimer = setTimeout(() => {
     if (state.chart) drawChart();
     if (state.rs) drawRSChart(state.rs.series);
+    if (state.intraday || state.intradayError) drawIntradayChart();
   }, 120);
 });
 

@@ -1,6 +1,14 @@
 import unittest
+from datetime import datetime
 
-from market_data import MarketDataClient, instrument_type, normalize_symbol, security_id
+from market_data import (
+    MarketDataClient,
+    MarketDataError,
+    instrument_type,
+    intraday_live,
+    normalize_symbol,
+    security_id,
+)
 
 
 class SymbolTests(unittest.TestCase):
@@ -131,6 +139,109 @@ class QuotePrecisionTests(unittest.TestCase):
         quote = self.quote_with("600519", {"f57": "600519", "f43": 10000, "f60": 9900})
         self.assertEqual(quote["price"], 100.0)
         self.assertEqual(quote["previous_close"], 99.0)
+
+
+class IntradayTests(unittest.TestCase):
+    """分时：主源逐行解析、均价自算、备用源累计转增量、实时判断。"""
+
+    PRIMARY = {
+        "data": {
+            "name": "贵州茅台",
+            "decimal": 2,
+            "preClose": 1452.0,
+            "trends": [
+                "2026-11-06 09:30,1450.00,1450.00,1450.00,1450.00,1561,226345000.00,1450.000",
+                "2026-11-06 09:31,1445.80,1450.98,1455.00,1436.44,2904,420208080.00,1447.898",
+            ],
+        }
+    }
+
+    def test_primary_trends_are_parsed(self):
+        client = MarketDataClient()
+        client._get_json = lambda *_args, **_kwargs: self.PRIMARY
+        data = client.intraday("600519")
+        self.assertEqual(data["data_source"], "primary")
+        self.assertEqual(data["name"], "贵州茅台")
+        self.assertEqual(data["previous_close"], 1452.0)
+        self.assertEqual(data["price_precision"], 2)
+        self.assertEqual(data["trade_date"], "2026-11-06")
+        self.assertEqual(len(data["rows"]), 2)
+        # 分时线画的是每分钟收盘价，不是开盘价
+        self.assertEqual(data["rows"][1]["price"], 1450.98)
+        self.assertEqual(data["rows"][1]["time"], "09:31")
+        self.assertEqual(data["rows"][1]["volume"], 2904.0)
+        # 均价 = 累计成交额 / 累计成交量（上游单位是手，要乘 100），自己算而不是取 f58
+        expected = (226345000.0 + 420208080.0) / ((1561 + 2904) * 100)
+        self.assertAlmostEqual(data["rows"][1]["avg"], round(expected, 3), places=6)
+        self.assertEqual(data["volume"], 4465.0)
+        self.assertEqual(data["amount"], 646553080.0)
+        self.assertEqual(data["high"], 1455.0)
+        self.assertEqual(data["low"], 1436.44)
+        self.assertAlmostEqual(data["pct_change"], round((1450.98 / 1452 - 1) * 100, 2))
+
+    def test_fallback_converts_cumulative_volume(self):
+        client = MarketDataClient()
+
+        def fake(url, params):
+            if "trends2" in url:
+                raise MarketDataError("上游断连")
+            return {
+                "data": {
+                    "sh600519": {
+                        "data": {
+                            "date": "20261106",
+                            "data": [
+                                "0930 1450.00 1561 226345000.00",
+                                "0931 1450.98 4465 646553080.00",
+                            ],
+                        },
+                        "qt": {"sh600519": ["1", "贵州茅台", "600519", "1450.98", "1452.00", "1450.00", "4465"]},
+                    }
+                }
+            }
+
+        client._get_json = fake
+        data = client.intraday("600519")
+        self.assertEqual(data["data_source"], "fallback")
+        self.assertEqual(data["name"], "贵州茅台")
+        self.assertEqual(data["previous_close"], 1452.0)
+        self.assertEqual(data["rows"][1]["volume"], 2904.0)  # 累计 4465 − 1561
+        self.assertEqual(data["rows"][1]["amount"], 420208080.0)
+        self.assertEqual(data["volume"], 4465.0)
+
+    def test_etf_keeps_three_decimals(self):
+        client = MarketDataClient()
+        client._get_json = lambda *_args, **_kwargs: {
+            "data": {
+                "name": "创业板ETF易方达",
+                "decimal": 3,
+                "preClose": 2.584,
+                "trends": ["2026-11-06 09:30,2.485,2.485,2.485,2.485,1387588,344815616.0,2.4850"],
+            }
+        }
+        data = client.intraday("159915")
+        self.assertEqual(data["price_precision"], 3)
+        self.assertEqual(data["price"], 2.485)
+        self.assertEqual(data["previous_close"], 2.584)
+
+    def test_empty_payload_raises(self):
+        client = MarketDataClient()
+        client._get_json = lambda *_args, **_kwargs: {"data": None}
+        with self.assertRaises(MarketDataError):
+            client.intraday("600519")
+
+    def test_live_needs_same_day_and_fresh_tick(self):
+        last = datetime(2026, 11, 6, 10, 17)
+        self.assertTrue(intraday_live(last, datetime(2026, 11, 6, 10, 18, 20)))
+        # 上游分钟标签常比本机时钟快二三十秒，负偏差不能算成"非实时"
+        self.assertTrue(intraday_live(last, datetime(2026, 11, 6, 10, 16, 50)))
+        # 收盘后/停更：超过阈值就不再轮询
+        self.assertFalse(intraday_live(last, datetime(2026, 11, 6, 10, 30)))
+        # 周六
+        self.assertFalse(intraday_live(last, datetime(2026, 11, 7, 10, 18)))
+        # 节假日拿到的是上一个交易日的数据
+        self.assertFalse(intraday_live(last, datetime(2026, 11, 9, 10, 18)))
+        self.assertFalse(intraday_live(None, datetime(2026, 11, 6, 10, 18)))
 
 
 class ConstituentTests(unittest.TestCase):

@@ -21,15 +21,17 @@ ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 DATA = MarketDataClient()
 
-# 版本与 git tag 一一对应：tag v1.5-three-fields ⇄ APP_VERSION "1.5-three-fields"。
+# 版本与 git tag 一一对应：tag v1.6-intraday ⇄ APP_VERSION "1.6-intraday"。
 # 改这里必须同时打标签，否则"页面自报版本"与"回滚点"会脱钩。
-APP_VERSION = "1.5-three-fields"
+# 注意：reports/index.json 里的 release 仍是 v1.5-three-fields——那是报告生成时的
+# 版本，1.6 只加了行情展示，没有新报告入库，两个版本号从这里开始各自独立。
+APP_VERSION = "1.6-intraday"
 # 相对强弱因子使用的基准；与 /api/rs 的默认基准保持一致。
 BENCHMARK_SYMBOL = "000300"
 # 供前端和 /api/health 自检：旧进程没有这些路由时会以 JSON 404 明确报错，
 # 而不是退回静态文件服务返回 HTML。
 API_ROUTES = ("/api/health", "/api/analyze", "/api/search", "/api/rs", "/api/market",
-              "/api/batch", "/api/allocation")
+              "/api/batch", "/api/allocation", "/api/intraday")
 SUMMARY_PATH = ROOT / "reports" / "fields" / "summary.json"
 # ETF 配置是"研究产物 → 页面只读"的单向通道：app 不 import etf_allocation，
 # 不读 ETF 行情，也不缓存中间状态，只把研究报告里的 latest.json 原样暴露。
@@ -372,7 +374,7 @@ class Handler(BaseHTTPRequestHandler):
                         "version": APP_VERSION,
                         "routes": list(API_ROUTES),
                         "features": ["search", "relative_strength", "batch", "candlestick",
-                                     "three_fields", "etf_allocation"],
+                                     "three_fields", "etf_allocation", "intraday"],
                     },
                 )
                 return
@@ -429,6 +431,12 @@ class Handler(BaseHTTPRequestHandler):
                         },
                     },
                 )
+                return
+            if parsed.path == "/api/intraday":
+                # 单独一条路由而不是塞进 /api/analyze：分时图要能独立刷新
+                # （盘中每分钟一次），不该把整套三字段计算重跑一遍。
+                symbol = normalize_symbol(query.get("symbol", ["600519"])[0])
+                self._send_json(200, {"ok": True, "data": DATA.intraday(symbol)})
                 return
             if parsed.path == "/api/allocation":
                 self._send_json(200, {"ok": True, "data": allocation_payload()})

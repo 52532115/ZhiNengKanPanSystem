@@ -137,6 +137,25 @@ main { width: min(1180px, calc(100% - 40px)); margin: auto; }
 .chart-shell { position: relative; height: 430px; margin-top: 20px; }
 #priceChart { width: 100%; height: 100%; cursor: crosshair; }
 .chart-tooltip { position: absolute; pointer-events: none; z-index: 2; min-width: 142px; padding: 9px 11px; border: 1px solid rgba(255,255,255,.15); background: rgba(22,34,29,.94); color: white; border-radius: 4px; box-shadow: 0 8px 24px rgba(12,25,18,.18); font: 11px/1.65 ui-monospace, monospace; transform: translate(-50%,-108%); white-space: nowrap; }
+
+/* 当日分时：固定 241 槽的盘中走势，与下方 K 线共用一套配色。 */
+.intraday-card { margin-top: 16px; padding: 22px 25px; }
+.intraday-card .panel-head { align-items: center; }
+.intraday-date { margin-left: 8px; color: var(--muted); font: 500 12px ui-monospace, monospace; }
+.intraday-tools { display: flex; align-items: center; gap: 14px; }
+.intraday-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 16px; color: var(--muted); font-size: 11px; }
+.intraday-stats b { color: var(--ink); font: 600 11px ui-monospace, monospace; }
+.intraday-refresh { flex: 0 0 auto; white-space: nowrap; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 4px; padding: 5px 12px; font-size: 12px; transition: .18s; }
+.intraday-refresh:hover { border-color: var(--ink); color: var(--ink); }
+.intraday-refresh.loading { opacity: .5; cursor: progress; }
+.intraday-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; color: var(--muted); font-size: 11px; }
+.intraday-legend span::before { content: ""; display: inline-block; width: 14px; height: 2px; margin-right: 5px; vertical-align: 3px; background: var(--ink); }
+.intraday-legend .intraday-avg::before { background: var(--amber); }
+.intraday-legend .intraday-pre::before { background: #b9c2ba; }
+.intraday-shell { position: relative; height: 300px; margin-top: 10px; }
+#intradayChart { width: 100%; height: 100%; cursor: crosshair; }
+.intraday-note { margin: 10px 0 0; color: #98a29b; font-size: 11px; line-height: 1.6; }
+.intraday-note.error { color: #8f4534; }
 .reasons { display: grid; gap: 0; margin-top: 17px; }
 .reason { position: relative; padding: 12px 0 12px 25px; border-top: 1px solid #e5e8e3; color: #526158; font-size: 12px; line-height: 1.55; }
 .reason::before { content: ""; position: absolute; left: 2px; top: 18px; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
@@ -252,6 +271,9 @@ footer { display: flex; justify-content: space-between; padding: 22px max(28px,c
   .rs-card { padding: 18px; }.rs-stats { grid-template-columns: repeat(2,1fr); }.rs-stats > div:nth-child(odd) { border-left: 0; padding-left: 0; }
   .rs-shell { height: 220px; }.rs-verdict { font-size: 11px; padding: 5px 9px; }
   .section-head { align-items: start; flex-wrap: wrap; gap: 10px; }
+  .intraday-card { padding: 18px; }.intraday-card .panel-head { display: block; }
+  .intraday-tools { margin-top: 12px; justify-content: space-between; }.intraday-stats { justify-content: flex-start; }
+  .intraday-shell { height: 240px; }.intraday-date { display: block; margin: 6px 0 0; }
 }
 
 /* ---------------------------- ETF 配置（离线产物） ---------------------------- */

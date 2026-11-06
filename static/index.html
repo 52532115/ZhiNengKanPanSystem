@@ -134,6 +134,29 @@
         </div>
       </article>
 
+      <article class="intraday-card panel">
+        <div class="panel-head">
+          <div>
+            <div class="panel-label">当日分时</div>
+            <h3>盘中价格走势 <span class="intraday-date" id="intradayDate"></span></h3>
+          </div>
+          <div class="intraday-tools">
+            <div class="intraday-stats" id="intradayStats"></div>
+            <button type="button" class="intraday-refresh" id="intradayRefresh" title="立即重新读取分时">刷新</button>
+          </div>
+        </div>
+        <div class="intraday-legend">
+          <span class="intraday-price">分时价格</span>
+          <span class="intraday-avg">均价（累计成交额 / 累计成交量）</span>
+          <span class="intraday-pre">昨收基准</span>
+        </div>
+        <div class="intraday-shell">
+          <canvas id="intradayChart"></canvas>
+          <div class="chart-tooltip hidden" id="intradayTooltip"></div>
+        </div>
+        <p class="intraday-note" id="intradayNote">正在读取当日分时…</p>
+      </article>
+
       <div class="detail-grid">
         <article class="chart-card panel">
           <div class="panel-head">

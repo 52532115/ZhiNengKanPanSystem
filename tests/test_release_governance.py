@@ -14,17 +14,22 @@ class VersionTagTest(unittest.TestCase):
     def test_app_version_matches_tag(self):
         import app
 
-        # tag v1.5-three-fields ⇄ APP_VERSION "1.5-three-fields"
-        self.assertEqual(app.APP_VERSION, "1.5-three-fields")
+        # tag v1.6-intraday ⇄ APP_VERSION "1.6-intraday"
+        # reports/index.json 的 release 仍是 v1.5-three-fields：报告是在那个版本生成的，
+        # 1.6 只加了行情展示、没有新报告入库——两个版本号从这里开始各自独立。
+        self.assertEqual(app.APP_VERSION, "1.6-intraday")
         self.assertTrue(re.fullmatch(r"\d+\.\d+-[a-z-]+", app.APP_VERSION))
         self.assertEqual(app.Handler.server_version,
                          f"AShareResearch/{app.APP_VERSION}")
 
     def test_changelog_declares_same_version(self):
         text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+        self.assertIn("## [1.6-intraday]", text)
+        self.assertIn("`v1.6-intraday`", text)
+        self.assertIn("APP_VERSION", text)
+        # 历史版本章节必须保留，不能被新版本覆盖掉
         self.assertIn("## [1.5-three-fields]", text)
         self.assertIn("`v1.5-three-fields`", text)
-        self.assertIn("APP_VERSION", text)
 
     def test_changelog_has_verdicts_for_every_milestone(self):
         text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
