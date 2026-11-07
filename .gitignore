@@ -1,4 +1,12 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.cache/
+.idea/
+.workbuddy/
 
+
+# 研究报告是产物不是源码：只跟踪登记表 reports/index.json，
+# 其余 HTML/JSON/PNG 由 index.json 里的 producer 命令重新生成。
+reports/**
+!reports/index.json

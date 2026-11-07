@@ -14,6 +14,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -27,6 +28,15 @@ INDEXES = {
     "399006": ("0.399006", "创业板指"),
 }
 
+# 相对强弱基准池。市场环境只遍历 INDEXES，因此向基准池追加品种不会改变
+# /api/market 的口径。
+BENCHMARKS = {
+    **INDEXES,
+    "000300": ("1.000300", "沪深300"),
+    "000905": ("1.000905", "中证500"),
+    "000852": ("1.000852", "中证1000"),
+}
+
 
 def normalize_symbol(raw: str) -> str:
     value = raw.strip().upper().replace("SH", "").replace("SZ", "").replace("BJ", "")
@@ -37,7 +47,17 @@ def normalize_symbol(raw: str) -> str:
     return value
 
 
+def is_bse(symbol: str) -> bool:
+    """北交所代码段：43/83/87/88，以及 2024 年启用的 92 段。
+
+    92 段如果按首位 9 处理会落到沪市通道（1.920xxx），上游直接返回空数据。
+    """
+    return symbol.startswith(("43", "83", "87", "88", "92"))
+
+
 def security_id(symbol: str) -> str:
+    if is_bse(symbol):
+        return f"0.{symbol}"
     market = "1" if symbol.startswith(("5", "6", "9")) else "0"
     return f"{market}.{symbol}"
 
@@ -58,6 +78,50 @@ def clean_name(value: Any, fallback: str) -> str:
     return "".join(value.split())
 
 
+def parse_stamp(text: Any) -> datetime | None:
+    """把 ``2026-11-06 10:17`` 解析成 naive 本地时间；格式不对就返回 None。"""
+    if not isinstance(text, str):
+        return None
+    for layout, size in (("%Y-%m-%d %H:%M", 16), ("%Y-%m-%d %H:%M:%S", 19)):
+        try:
+            return datetime.strptime(text[:size], layout)
+        except ValueError:
+            continue
+    return None
+
+
+def intraday_live(last: datetime | None, now: datetime | None = None) -> bool:
+    """最后一笔是否属于「刚刚」，用来决定前端要不要继续轮询。
+
+    只认三个条件：工作日、与今天同一个交易日、三分钟内。周末与节假日上游返回的是
+    上一个交易日的数据，日期不同就自动判成非实时——不需要维护节假日表。
+
+    下界取负值：上游的分钟标签按「整分钟」打，且其时钟常比本机快二三十秒，
+    ``last`` 比 ``now`` 稍微靠后是正常的，不能因此判成非实时。
+    """
+    if last is None:
+        return False
+    now = now or datetime.now()
+    if now.weekday() >= 5 or last.date() != now.date():
+        return False
+    return -180 <= (now - last).total_seconds() <= 150
+
+
+def price_precision(sample: Any, fallback: int = 2) -> int:
+    """从 ``"2.584"`` 这类价格字符串推断小数位；推断不出就用 fallback。
+
+    场内基金 3 位、A 股 2 位。主源直接给 ``decimal``，只有备用源需要推断。
+    """
+    try:
+        text = str(sample)
+    except Exception:  # pragma: no cover - str() 几乎不会失败
+        return fallback
+    if "." not in text:
+        return fallback
+    digits = len(text.split(".", 1)[1].strip())
+    return digits if 0 <= digits <= 4 else fallback
+
+
 @dataclass
 class CacheItem:
     expires_at: float
@@ -67,7 +131,22 @@ class CacheItem:
 class MarketDataClient:
     KLINE_URL = "https://push2his.eastmoney.com/api/qt/stock/kline/get"
     QUOTE_URL = "https://push2.eastmoney.com/api/qt/stock/get"
+    # 当日分时（1 分钟）走势。trends2 每行是
+    # 「时间,开,收,高,低,成交量(手),成交额(元),均价」，分时线要画的是「收」——
+    # 它与 1 分钟 K 线的 close 逐点对齐（09:31 收 1450.98、09:32 收 1444.31 …）。
+    # ndays 固定 1：跨日在同一个数组里，价格轴会失去「昨收」这个唯一基准。
+    TRENDS_URL = "https://push2his.eastmoney.com/api/qt/stock/trends2/get"
+    TREND_FIELDS1 = "f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13"
+    TREND_FIELDS2 = "f51,f52,f53,f54,f55,f56,f57,f58"
+    FALLBACK_TREND_URL = "https://web.ifzq.gtimg.cn/appstock/app/minute/query"
     FALLBACK_KLINE_URL = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+
+    SEARCH_URL = "https://searchapi.eastmoney.com/api/suggest/get"
+    SEARCH_TOKEN = "D43BF722C8E33BDC906FB84D85E326E8"
+    CONSTITUENT_URL = "https://push2.eastmoney.com/api/qt/clist/get"
+    CONSTITUENT_BOARDS = {"hs300": ("BK0500", "沪深300")}
+    # 只接受 A 股与场内基金；指数/港股/美股一律过滤，避免与个股代码冲突。
+    SEARCH_CLASSIFY = {"AStock": "stock", "Fund": "fund"}
 
     def __init__(self, timeout: float = 8.0) -> None:
         self.timeout = timeout
@@ -111,8 +190,18 @@ class MarketDataClient:
             self._cache[key] = CacheItem(now + ttl, value)
         return value
 
-    def _fallback_history(self, symbol: str, limit: int, *, index: bool) -> dict[str, Any]:
-        prefix = "sh" if (index and symbol == "000001") or symbol.startswith(("5", "6", "9")) else "sz"
+    def _fallback_history(
+        self,
+        symbol: str,
+        limit: int,
+        *,
+        index: bool = False,
+        market: str | None = None,
+    ) -> dict[str, Any]:
+        if market is None:
+            market = "1" if (index and symbol == "000001") or symbol.startswith(("5", "6", "9")) else "0"
+        # 北交所备用源用 bj 前缀；沪市用 sh，其余用 sz。
+        prefix = "bj" if is_bse(symbol) else ("sh" if market == "1" else "sz")
         key = f"{prefix}{symbol}"
         payload = self._get_json(
             self.FALLBACK_KLINE_URL,
@@ -161,10 +250,13 @@ class MarketDataClient:
 
     def history(self, symbol: str, limit: int = 300, *, index: bool = False) -> dict[str, Any]:
         symbol = normalize_symbol(symbol)
-        limit = max(80, min(limit, 600))
-        if index and symbol not in INDEXES:
+        # 上限 3000 根（约 12 年）：600 根只够 2.4 年，装不下 2 年 lockbox +
+        # 5 折 purged walk-forward + 12-1 动量预热，研究链路会样本不足。
+        limit = max(80, min(limit, 3000))
+        if index and symbol not in BENCHMARKS:
             raise ValueError("不支持的市场指数代码")
-        secid = INDEXES[symbol][0] if index else security_id(symbol)
+        secid = BENCHMARKS[symbol][0] if index else security_id(symbol)
+        market = secid.split(".", 1)[0]
         asset_type = "index" if index else instrument_type(symbol)
 
         def load() -> dict[str, Any]:
@@ -182,7 +274,7 @@ class MarketDataClient:
                     },
                 )
             except MarketDataError:
-                fallback = self._fallback_history(symbol, limit, index=index)
+                fallback = self._fallback_history(symbol, limit, index=index, market=market)
                 return {**fallback, "asset_type": asset_type}
             data = payload.get("data")
             if not data or not data.get("klines"):
@@ -230,26 +322,36 @@ class MarketDataClient:
                 self.QUOTE_URL,
                 {
                     "secid": security_id(symbol),
-                    "fields": "f57,f58,f43,f44,f45,f46,f47,f48,f60,f116,f117,f162,f167,f170,f171",
+                    "fields": "f57,f58,f59,f43,f44,f45,f46,f47,f48,f60,f116,f117,f162,f167,f170,f171",
                 },
             )
             data = payload.get("data") or {}
 
-            def scaled(field: str, divisor: float = 100.0) -> float | None:
+            # f59 是价格小数位数：A 股 2 位，场内基金 3 位。f43 等价格字段
+            # 必须按 10**digits 缩放；统一除以 100 会把 ETF 价格放大 10 倍。
+            try:
+                digits = int(data.get("f59"))
+            except (TypeError, ValueError):
+                digits = 2
+            if not 0 <= digits <= 4:
+                digits = 2
+            price_scale = 10 ** digits
+
+            def scaled(field: str, divisor: float = 100.0, precision: int = 3) -> float | None:
                 value = data.get(field)
-                return None if value in (None, "-") else round(float(value) / divisor, 3)
+                return None if value in (None, "-") else round(float(value) / divisor, precision)
 
             return {
                 "symbol": data.get("f57") or symbol,
                 "name": clean_name(data.get("f58"), symbol),
                 "asset_type": instrument_type(symbol),
-                "price": scaled("f43"),
-                "high": scaled("f44"),
-                "low": scaled("f45"),
-                "open": scaled("f46"),
+                "price": scaled("f43", price_scale, digits),
+                "high": scaled("f44", price_scale, digits),
+                "low": scaled("f45", price_scale, digits),
+                "open": scaled("f46", price_scale, digits),
                 "volume": data.get("f47"),
                 "amount": data.get("f48"),
-                "previous_close": scaled("f60"),
+                "previous_close": scaled("f60", price_scale, digits),
                 "market_cap": data.get("f116"),
                 "float_market_cap": data.get("f117"),
                 "pe_ttm": scaled("f162"),
@@ -259,3 +361,290 @@ class MarketDataClient:
             }
 
         return self._cached(f"quote:{symbol}", 20, load)
+
+    # ---------------------------- 当日分时 ----------------------------
+
+    def intraday(self, symbol: str) -> dict[str, Any]:
+        """当日 1 分钟走势。成交量单位是「手」，成交额单位是「元」。
+
+        只做主源 → 备源的降级，不做任何插值：上游给几个点就画几个点。
+        ``live`` 决定前端是否继续轮询，收盘后数据不再变，缓存放宽到 5 分钟。
+        """
+        symbol = normalize_symbol(symbol)
+        key = f"intraday:{symbol}"
+        now = time.time()
+        with self._lock:
+            item = self._cache.get(key)
+            if item and item.expires_at > now:
+                return item.value
+        value = self._load_intraday(symbol)
+        with self._lock:
+            self._cache[key] = CacheItem(now + (20 if value["live"] else 300), value)
+        return value
+
+    def _load_intraday(self, symbol: str) -> dict[str, Any]:
+        try:
+            payload = self._get_json(
+                self.TRENDS_URL,
+                {
+                    "secid": security_id(symbol),
+                    "fields1": self.TREND_FIELDS1,
+                    "fields2": self.TREND_FIELDS2,
+                    "iscr": "0",
+                    "ndays": "1",
+                },
+            )
+        except MarketDataError:
+            return self._fallback_intraday(symbol)
+        data = payload.get("data") or {}
+        lines = data.get("trends") or []
+        # 停牌、未开盘或代码不存在时上游返回空数组，此时再试备用源；
+        # 备用源也空才算真的没有数据（由 _finish_intraday 抛错）。
+        if not lines:
+            return self._fallback_intraday(symbol)
+        digits = data.get("decimal")
+        try:
+            precision = int(digits)
+        except (TypeError, ValueError):
+            precision = 2
+        if not 0 <= precision <= 4:
+            precision = 2
+        frames: list[dict[str, Any]] = []
+        for line in lines:
+            parts = line.split(",")
+            if len(parts) < 7:
+                continue
+            try:
+                frames.append(
+                    {
+                        "stamp": parts[0].strip(),
+                        "open": float(parts[1]),
+                        "price": float(parts[2]),
+                        "high": float(parts[3]),
+                        "low": float(parts[4]),
+                        "volume": float(parts[5]),
+                        "amount": float(parts[6]),
+                    }
+                )
+            except ValueError:
+                continue
+        try:
+            pre_close = float(data.get("preClose"))
+        except (TypeError, ValueError):
+            pre_close = None
+        return self._finish_intraday(
+            symbol, clean_name(data.get("name"), symbol), precision, pre_close, frames, "primary"
+        )
+
+    def _fallback_intraday(self, symbol: str) -> dict[str, Any]:
+        """腾讯 minute 备用源。它给的是「累计」成交量/额，要逐行做差。"""
+        market = "1" if symbol.startswith(("5", "6", "9")) else "0"
+        prefix = "bj" if is_bse(symbol) else ("sh" if market == "1" else "sz")
+        key = f"{prefix}{symbol}"
+        payload = self._get_json(self.FALLBACK_TREND_URL, {"code": key})
+        block = (payload.get("data") or {}).get(key) or {}
+        inner = block.get("data") or {}
+        lines = inner.get("data") or []
+        day = str(inner.get("date") or "")
+        quote_row = (block.get("qt") or {}).get(key) or []
+        name = clean_name(quote_row[1] if len(quote_row) > 1 else None, symbol)
+        try:
+            pre_close = float(quote_row[4]) if len(quote_row) > 4 else None
+        except (TypeError, ValueError):
+            pre_close = None
+        precision = price_precision(quote_row[4] if len(quote_row) > 4 else None, 3 if instrument_type(symbol) != "stock" else 2)
+
+        frames: list[dict[str, Any]] = []
+        prev_volume = prev_amount = 0.0
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            clock = parts[0]
+            try:
+                price = float(parts[1])
+                total_volume = float(parts[2])
+                total_amount = float(parts[3])
+            except ValueError:
+                continue
+            volume = max(0.0, total_volume - prev_volume)
+            amount = max(0.0, total_amount - prev_amount)
+            prev_volume, prev_amount = total_volume, total_amount
+            # 备用源没有分钟级开高低，只有每分钟的成交价；不编造高低点。
+            frames.append(
+                {
+                    "stamp": f"{day[:4]}-{day[4:6]}-{day[6:]} {clock[:2]}:{clock[2:4]}"
+                    if len(day) == 8 and len(clock) >= 4 else clock,
+                    "open": price,
+                    "price": price,
+                    "high": price,
+                    "low": price,
+                    "volume": volume,
+                    "amount": amount,
+                }
+            )
+        return self._finish_intraday(symbol, name, precision, pre_close, frames, "fallback")
+
+    def _finish_intraday(
+        self,
+        symbol: str,
+        name: str,
+        precision: int,
+        pre_close: float | None,
+        frames: list[dict[str, Any]],
+        source: str,
+    ) -> dict[str, Any]:
+        if not frames:
+            raise MarketDataError("该代码暂无当日分时数据（可能停牌或尚未开盘）")
+        base = pre_close if pre_close and pre_close > 0 else frames[0]["price"]
+        # 均价 = 累计成交额 / 累计成交量，自己算而不是取上游 f58：
+        # 主源与备用源的口径因此完全一致，也能被测试固定住。
+        cum_volume = cum_amount = 0.0
+        rows: list[dict[str, Any]] = []
+        for frame in frames:
+            cum_volume += frame["volume"]
+            cum_amount += frame["amount"]
+            average = (
+                cum_amount / (cum_volume * 100)
+                if cum_volume > 0 and cum_amount > 0 else frame["price"]
+            )
+            rows.append(
+                {
+                    "time": frame["stamp"][11:16],
+                    "open": round(frame["open"], precision),
+                    "price": round(frame["price"], precision),
+                    "high": round(frame["high"], precision),
+                    "low": round(frame["low"], precision),
+                    "volume": frame["volume"],
+                    "amount": frame["amount"],
+                    "avg": round(average, max(precision, 3)),
+                }
+            )
+        last = rows[-1]
+        return {
+            "symbol": symbol,
+            "name": name,
+            "asset_type": instrument_type(symbol),
+            "price_precision": precision,
+            "trade_date": (frames[0]["stamp"] or "")[:10],
+            "as_of": frames[-1]["stamp"],
+            "previous_close": round(base, precision),
+            "open": rows[0]["open"],
+            "price": last["price"],
+            "avg": last["avg"],
+            "change": round(last["price"] - base, precision),
+            "pct_change": round((last["price"] / base - 1) * 100, 2) if base else None,
+            "high": max(row["high"] for row in rows),
+            "low": min(row["low"] for row in rows),
+            "volume": cum_volume,
+            "amount": cum_amount,
+            "rows": rows,
+            "live": intraday_live(parse_stamp(frames[-1]["stamp"])),
+            "data_source": source,
+        }
+
+    def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+        """Resolve a name / pinyin / partial code into tradeable symbols.
+
+        The upstream suggest endpoint is best-effort: when it is unreachable we
+        return an empty list so the search box degrades to "code only" silently
+        instead of blocking the whole page with an error banner.
+        """
+        query = (query or "").strip()[:24]
+        if not query:
+            return []
+        limit = max(1, min(limit, 12))
+
+        def load() -> list[dict[str, Any]]:
+            try:
+                payload = self._get_json(
+                    self.SEARCH_URL,
+                    {"input": query, "type": "14", "token": self.SEARCH_TOKEN, "count": "12"},
+                )
+            except MarketDataError:
+                return []
+            rows = (payload.get("QuotationCodeTable") or {}).get("Data") or []
+            items: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            for row in rows:
+                if row.get("Classify") not in self.SEARCH_CLASSIFY:
+                    continue
+                code = str(row.get("Code") or "").strip()
+                if not (len(code) == 6 and code.isdigit()) or code[0] not in "01345689":
+                    continue
+                if code in seen:
+                    continue
+                seen.add(code)
+                items.append(
+                    {
+                        "symbol": code,
+                        "name": clean_name(row.get("Name"), code),
+                        "asset_type": instrument_type(code),
+                        "market": "沪市" if security_id(code).startswith("1.") else "深市",
+                        "type_label": clean_name(row.get("SecurityTypeName"), ""),
+                    }
+                )
+                if len(items) >= limit:
+                    break
+            return items
+
+        return self._cached(f"search:{query}:{limit}", 600, load)
+
+    def constituents(self, board: str = "hs300", limit: int = 300) -> list[dict[str, Any]]:
+        """按市值降序取指数成分股，供 walk-forward 扩样本使用。
+
+        上游 clist 接口单页最多 100 条，这里自动翻页并缓存一小时。
+        """
+        if board not in self.CONSTITUENT_BOARDS:
+            raise ValueError(f"不支持的成分股池：{board}")
+        board_id, board_name = self.CONSTITUENT_BOARDS[board]
+        limit = max(1, min(limit, 500))
+
+        def load() -> list[dict[str, Any]]:
+            items: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            page = 1
+            while len(items) < limit:
+                payload = self._get_json(
+                    self.CONSTITUENT_URL,
+                    {
+                        "pn": str(page),
+                        "pz": "100",
+                        "po": "1",
+                        "np": "1",
+                        "fltt": "2",
+                        "invt": "2",
+                        "fid": "f20",
+                        "fs": f"b:{board_id}",
+                        "fields": "f12,f14,f20",
+                    },
+                )
+                data = payload.get("data") or {}
+                rows = data.get("diff") or []
+                if not rows:
+                    break
+                for row in rows:
+                    code = str(row.get("f12") or "").strip()
+                    if not (len(code) == 6 and code.isdigit()) or code[0] not in "01345689":
+                        continue
+                    if code in seen:
+                        continue
+                    seen.add(code)
+                    items.append(
+                        {
+                            "symbol": code,
+                            "name": clean_name(row.get("f14"), code),
+                            "market_cap": row.get("f20"),
+                        }
+                    )
+                    if len(items) >= limit:
+                        break
+                total = int(data.get("total") or 0)
+                if len(rows) < 100 or page * 100 >= total:
+                    break
+                page += 1
+            if not items:
+                raise MarketDataError(f"未取得{board_name}成分股列表")
+            return items
+
+        return self._cached(f"constituents:{board}:{limit}", 3600, load)
